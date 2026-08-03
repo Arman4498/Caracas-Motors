@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Caracas Motors, spécialiste de la vente de véhicules neufs et d'occasion.">
+  <title>Caracas Motors | Vente de véhicules</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <header class="header">
+    <div class="container nav-container">
+      <a href="#accueil" class="logo" aria-label="Accueil Caracas Motors">
+        <span class="logo-icon">CM</span>
+        <span>Caracas Motors</span>
+      </a>
+
+      <button class="menu-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <nav class="nav" aria-label="Navigation principale">
+        <a href="#accueil">Accueil</a>
+        <a href="#vehicules">Véhicules</a>
+        <a href="#ajouter" class="nav-cta" id="sellerNavLink">Espace vendeur</a>
+        <button type="button" class="nav-logout hidden" id="logoutBtn">Déconnexion</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="accueil">
+      <div class="container hero-content">
+        <div class="hero-text">
+          <h1>Bienvenue sur le site du Caracas Motors</h1>
+          <p>
+            Parcourez notre catalogue et trouvez le véhicule qui vous correspond.
+          </p>
+
+          <div class="hero-actions">
+            <a href="#vehicules" class="btn btn-primary">Voir les véhicules</a>
+          </div>
+        </div>
+
+        <div class="hero-card" id="heroCard">
+          <div class="hero-badge">Offre du moment</div>
+          <img id="heroImage" class="hidden" alt="">
+          <div class="hero-image-placeholder hidden" id="heroImagePlaceholder" aria-hidden="true">
+            Aucune photo
+          </div>
+          <div class="hero-card-content">
+            <div>
+              <span id="heroTitle">Aucune offre sélectionnée</span>
+              <strong id="heroPrice" class="hidden"></strong>
+            </div>
+            <button type="button" class="hero-view-btn hidden" id="heroViewBtn" aria-label="Voir les détails">→</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="vehicles section" id="vehicules">
+      <div class="container">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Notre sélection</span>
+            <h2>Véhicules disponibles</h2>
+          </div>
+
+          <div class="filters">
+            <input
+              type="search"
+              id="searchInput"
+              placeholder="Rechercher une marque ou un modèle..."
+              aria-label="Rechercher un véhicule"
+            >
+            <select id="conditionFilter" aria-label="Filtrer par type">
+              <option value="">Tous les types</option>
+              <option value="neuf">Neuf</option>
+              <option value="occasion">Occasion</option>
+            </select>
+            <select id="sortFilter" aria-label="Trier les véhicules">
+              <option value="default">Tri par défaut</option>
+              <option value="price-asc">Prix croissant</option>
+              <option value="price-desc">Prix décroissant</option>
+              <option value="year-desc">Année récente</option>
+              <option value="mileage-asc">Kilométrage croissant</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="vehicle-grid" id="vehicleGrid"></div>
+
+        <div class="empty-state hidden" id="emptyState">
+          <h3>Aucun véhicule trouvé</h3>
+          <p>Modifiez votre recherche ou ajoutez une nouvelle annonce.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="add-vehicle section" id="ajouter">
+      <div class="container">
+        <div class="login-panel" id="loginPanel">
+          <div class="login-card">
+            <span class="eyebrow">Espace vendeur</span>
+            <h2>Connexion</h2>
+            <p>Connectez-vous avec un compte vendeur ou administrateur.</p>
+
+            <form class="login-form" id="loginForm">
+              <div class="form-group">
+                <label for="loginIdentifiant">Identifiant</label>
+                <input type="text" id="loginIdentifiant" required placeholder="test" autocomplete="username">
+              </div>
+              <div class="form-group">
+                <label for="loginPassword">Mot de passe</label>
+                <input type="password" id="loginPassword" required placeholder="Votre mot de passe">
+              </div>
+              <button type="submit" class="btn btn-primary btn-full">Se connecter</button>
+              <p class="form-message form-message-error" id="loginMessage" role="status"></p>
+            </form>
+          </div>
+        </div>
+
+        <div class="seller-panel hidden" id="sellerPanel">
+          <div class="form-layout">
+            <div class="form-intro">
+              <span class="eyebrow">Espace vendeur</span>
+              <h2>Ajouter un véhicule à vendre</h2>
+              <p>
+                Remplissez le formulaire pour publier immédiatement un véhicule dans le catalogue.
+              </p>
+
+              <div class="form-note">
+                <strong>Conseil</strong>
+                <p>Utilisez une photo claire pour rendre votre annonce plus attractive.</p>
+              </div>
+            </div>
+
+            <form class="vehicle-form" id="vehicleForm">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="brand">Marque *</label>
+                  <input type="text" id="brand" required placeholder="Benefactor">
+                </div>
+                <div class="form-group">
+                  <label for="model">Modèle</label>
+                  <input type="text" id="model" placeholder="Streiter">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="price">Prix en dollars *</label>
+                  <input type="number" id="price" required min="0">
+                </div>
+                <div class="form-group">
+                  <label for="condition">Type *</label>
+                  <select id="condition" required aria-label="Type de véhicule">
+                    <option value="occasion">Occasion</option>
+                    <option value="neuf">Neuf</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="image">Adresse URL de l'image</label>
+                <input type="text" id="image" placeholder="https://exemple.com/voiture.jpg">
+              </div>
+
+              <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="4" placeholder="Informations complémentaires"></textarea>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-full">Publier le véhicule</button>
+              <p class="form-message" id="formMessage" role="status"></p>
+            </form>
+          </div>
+        </div>
+
+        <div class="admin-panel hidden" id="adminPanel">
+          <div class="admin-header">
+            <span class="eyebrow">Espace administrateur</span>
+            <h2>Créer un compte vendeur</h2>
+            <p>Renseignez les informations ci-dessous pour ouvrir un accès vendeur au catalogue.</p>
+          </div>
+
+          <div class="form-layout admin-create-layout">
+            <form class="vehicle-form admin-create-form" id="createSellerForm">
+              <div class="form-group">
+                <label for="sellerIdentifiant">Identifiant *</label>
+                <input type="text" id="sellerIdentifiant" required placeholder="vendeur1" autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label for="sellerPassword">Mot de passe *</label>
+                <input type="password" id="sellerPassword" required placeholder="Mot de passe" minlength="3">
+              </div>
+              <div class="form-group">
+                <label for="sellerNom">Nom affiché *</label>
+                <input type="text" id="sellerNom" required placeholder="Nom du vendeur">
+              </div>
+              <div class="form-group">
+                <label for="sellerGrade">Grade *</label>
+                <select id="sellerGrade" required aria-label="Grade du vendeur">
+                  <option value="patron">Patron</option>
+                  <option value="co-patron">Co-patron</option>
+                  <option value="manager">Manager</option>
+                  <option value="employe" selected>Employé</option>
+                  <option value="apprenti">Apprenti</option>
+                  <option value="stagiaire">Stagiaire</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary btn-full">Créer le compte vendeur</button>
+              <p class="form-message" id="createSellerMessage" role="status"></p>
+            </form>
+
+            <div class="sellers-list-wrap">
+              <h3>Comptes vendeur existants</h3>
+              <ul class="sellers-list" id="sellersList"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal hidden" id="vehicleModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-overlay" data-close-modal></div>
+    <div class="modal-content">
+      <button class="modal-close" type="button" data-close-modal aria-label="Fermer">×</button>
+      <img id="modalImage" src="" alt="">
+      <div class="modal-body">
+        <div class="modal-tags">
+          <span class="vehicle-tag" id="modalCondition"></span>
+          <span class="vehicle-tag" id="modalFuel"></span>
+        </div>
+        <h2 id="modalTitle"></h2>
+        <p class="modal-price" id="modalPrice"></p>
+        <p id="modalDescription"></p>
+        <button type="button" class="btn btn-secondary btn-full hidden" id="modalFeaturedBtn">
+          Mettre en offre du moment
+        </button>
+        <a href="mailto:contact@caracasmotors.fr" class="btn btn-primary btn-full">Contacter le vendeur</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
