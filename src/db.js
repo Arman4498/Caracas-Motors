@@ -108,11 +108,6 @@ function initDatabase() {
   normalizeRoles();
   normalizeGrades();
 
-  const sellerCount = db.prepare("SELECT COUNT(*) AS count FROM vendeurs").get().count;
-  if (sellerCount === 0) {
-    runSqlFile("seed.sql");
-  }
-
   removeTestAccount();
   ensureAdminAccount();
 }
