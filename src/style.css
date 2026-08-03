@@ -826,6 +826,29 @@ body.admin-mode .delete-btn {
   flex-shrink: 0;
 }
 
+.sellers-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.seller-delete-btn {
+  width: 42px;
+  min-height: 42px;
+  border: 1px solid #fecdca;
+  color: #b42318;
+  background: #fff5f4;
+  border-radius: 10px;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.seller-delete-btn:hover {
+  background: #fee4e2;
+}
+
 .seller-grade-select {
   min-width: 150px;
   min-height: 42px;

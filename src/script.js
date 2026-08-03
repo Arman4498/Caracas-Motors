@@ -1,4 +1,6 @@
 const API_PORT = "3002";
+const DEFAULT_VEHICLE_IMAGE =
+  "https://us.123rf.com/450wm/surfupvector/surfupvector1908/surfupvector190802662/129243509-denied-art-line-icon-censorship-no-photo-no-image-available-reject-or-cancel-concept-vector.jpg";
 
 const API_BASE = (() => {
   const { protocol, hostname, port } = window.location;
@@ -143,7 +145,12 @@ function getConditionBadgeClass(condition) {
 
 function getVehicleImage(vehicle) {
   const image = vehicle.image?.trim();
-  return image || null;
+  return image || DEFAULT_VEHICLE_IMAGE;
+}
+
+function handleVehicleImageError(event) {
+  event.target.onerror = null;
+  event.target.src = DEFAULT_VEHICLE_IMAGE;
 }
 
 function canSetFeatured(vehicle) {
@@ -216,20 +223,13 @@ function renderVehicles(list) {
     const card = document.createElement("article");
     const badge = `<span class="vehicle-tag ${getConditionBadgeClass(vehicle.condition)}">${getConditionLabel(vehicle.condition)}</span>`;
 
-    card.className = [
-      imageUrl ? "vehicle-card" : "vehicle-card vehicle-card--no-image",
-      vehicle.isFeatured ? "is-featured" : ""
-    ]
+    card.className = ["vehicle-card", vehicle.isFeatured ? "is-featured" : ""]
       .filter(Boolean)
       .join(" ");
 
     card.innerHTML = `
-      <div class="vehicle-image${imageUrl ? "" : " vehicle-image--empty"}">
-        ${
-          imageUrl
-            ? `<img src="${imageUrl}" alt="${vehicle.brand} ${vehicle.model}">`
-            : `<span class="vehicle-image-placeholder" aria-hidden="true">Aucune photo</span>`
-        }
+      <div class="vehicle-image">
+        <img src="${imageUrl}" alt="${vehicle.brand} ${vehicle.model}" onerror="handleVehicleImageError(event)">
         ${badge}
         ${vehicle.isFeatured ? `<span class="vehicle-featured-tag">Offre du moment</span>` : ""}
       </div>
@@ -275,16 +275,11 @@ function renderHeroFeatured() {
   heroViewBtn.classList.remove("hidden");
 
   const imageUrl = getVehicleImage(featured);
-  if (imageUrl) {
-    heroImage.src = imageUrl;
-    heroImage.alt = `${featured.brand} ${featured.model}`;
-    heroImage.classList.remove("hidden");
-    heroImagePlaceholder.classList.add("hidden");
-  } else {
-    heroImage.classList.add("hidden");
-    heroImage.removeAttribute("src");
-    heroImagePlaceholder.classList.remove("hidden");
-  }
+  heroImage.src = imageUrl;
+  heroImage.alt = `${featured.brand} ${featured.model}`;
+  heroImage.onerror = handleVehicleImageError;
+  heroImage.classList.remove("hidden");
+  heroImagePlaceholder.classList.add("hidden");
 }
 
 function updateModalFeaturedBtn(vehicle) {
@@ -306,17 +301,11 @@ function openModal(vehicle) {
   const modalContent = document.querySelector(".modal-content");
   const imageUrl = getVehicleImage(vehicle);
 
-  if (imageUrl) {
-    modalImage.src = imageUrl;
-    modalImage.alt = `${vehicle.brand} ${vehicle.model}`;
-    modalImage.classList.remove("hidden");
-    modalContent.classList.remove("modal-content--no-image");
-  } else {
-    modalImage.removeAttribute("src");
-    modalImage.alt = "";
-    modalImage.classList.add("hidden");
-    modalContent.classList.add("modal-content--no-image");
-  }
+  modalImage.src = imageUrl;
+  modalImage.alt = `${vehicle.brand} ${vehicle.model}`;
+  modalImage.onerror = handleVehicleImageError;
+  modalImage.classList.remove("hidden");
+  modalContent.classList.remove("modal-content--no-image");
 
   document.getElementById("modalCondition").textContent = getConditionLabel(vehicle.condition);
   document.getElementById("modalCondition").className = `vehicle-tag ${getConditionBadgeClass(vehicle.condition)}`;
@@ -414,11 +403,14 @@ function renderSellersList() {
         <strong>${seller.nom}</strong>
         <span>${seller.identifiant}</span>
       </div>
-      <div class="sellers-list-grade">
-        <label class="sr-only" for="grade-${seller.id}">Grade de ${seller.nom}</label>
-        <select id="grade-${seller.id}" class="seller-grade-select" data-id="${seller.id}" data-previous-grade="${seller.grade || "employe"}" aria-label="Modifier le grade de ${seller.nom}">
-          ${buildGradeOptions(seller.grade || "employe")}
-        </select>
+      <div class="sellers-list-actions">
+        <div class="sellers-list-grade">
+          <label class="sr-only" for="grade-${seller.id}">Grade de ${seller.nom}</label>
+          <select id="grade-${seller.id}" class="seller-grade-select" data-id="${seller.id}" data-previous-grade="${seller.grade || "employe"}" aria-label="Modifier le grade de ${seller.nom}">
+            ${buildGradeOptions(seller.grade || "employe")}
+          </select>
+        </div>
+        <button type="button" class="seller-delete-btn" data-id="${seller.id}" aria-label="Supprimer ${seller.nom}">×</button>
       </div>
     `;
     sellersList.appendChild(item);
@@ -448,6 +440,30 @@ async function handleUpdateSellerGrade(id, grade, selectEl) {
     }, 2500);
   } catch (error) {
     selectEl.value = previousValue;
+    createSellerMessage.textContent = error.message;
+    createSellerMessage.classList.add("form-message-error");
+  }
+}
+
+async function handleDeleteSeller(id) {
+  const seller = sellers.find((item) => item.id === id);
+  if (!seller) return;
+
+  const confirmed = confirm(`Supprimer le compte vendeur ${seller.nom} (${seller.identifiant}) ?`);
+  if (!confirmed) return;
+
+  try {
+    await apiFetch(`/api/admin/sellers/${id}`, { method: "DELETE" });
+    sellers = sellers.filter((item) => item.id !== id);
+    renderSellersList();
+
+    createSellerMessage.textContent = "Compte vendeur supprimé.";
+    createSellerMessage.classList.remove("form-message-error");
+
+    setTimeout(() => {
+      createSellerMessage.textContent = "";
+    }, 2500);
+  } catch (error) {
     createSellerMessage.textContent = error.message;
     createSellerMessage.classList.add("form-message-error");
   }
@@ -665,6 +681,13 @@ function initEventListeners() {
     if (!select || !isAdmin()) return;
 
     handleUpdateSellerGrade(Number(select.dataset.id), select.value, select);
+  });
+
+  sellersList.addEventListener("click", (event) => {
+    const deleteBtn = event.target.closest(".seller-delete-btn");
+    if (!deleteBtn || !isAdmin()) return;
+
+    handleDeleteSeller(Number(deleteBtn.dataset.id));
   });
 
   logoutBtn.addEventListener("click", handleLogout);

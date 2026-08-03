@@ -295,6 +295,16 @@ function updateSellerGrade(id, grade) {
   return findSellerById(id);
 }
 
+function deleteSeller(id) {
+  const seller = findSellerById(id);
+  if (!seller || seller.role !== "vendeur") {
+    return false;
+  }
+
+  const result = db.prepare(readSqlFile("queries/delete-vendeur.sql")).run(id);
+  return result.changes > 0;
+}
+
 module.exports = {
   db,
   initDatabase,
@@ -310,6 +320,7 @@ module.exports = {
   createSellerAccount,
   getAllSellers,
   updateSellerGrade,
+  deleteSeller,
   mapSeller,
   SELLER_GRADES,
   isValidSellerGrade

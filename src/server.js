@@ -17,6 +17,7 @@ const {
   createSellerAccount,
   getAllSellers,
   updateSellerGrade,
+  deleteSeller,
   isValidSellerGrade
 } = require("./db");
 
@@ -284,6 +285,17 @@ app.patch("/api/admin/sellers/:id/grade", requireAdmin, (req, res) => {
   }
 
   res.json(updated);
+});
+
+app.delete("/api/admin/sellers/:id", requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const deleted = deleteSeller(id);
+
+  if (!deleted) {
+    return res.status(404).json({ error: "Vendeur introuvable ou suppression non autorisée." });
+  }
+
+  res.json({ success: true });
 });
 
 app.use(express.static(__dirname));
