@@ -11,6 +11,7 @@ const {
   setVehicleFeatured,
   createVehicle,
   deleteVehicle,
+  deleteVehicleAsAdmin,
   findSellerByIdentifiant,
   findSellerById,
   createSellerAccount,
@@ -20,7 +21,7 @@ const {
 } = require("./db");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
 
 const dbDir = path.join(__dirname, "database");
 if (!fs.existsSync(dbDir)) {
@@ -30,6 +31,19 @@ if (!fs.existsSync(dbDir)) {
 initDatabase();
 
 app.use(express.json());
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Access-Control-Allow-Credentials", "true");
+  }
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 app.use(
   session({
     secret: "caracas-motors-secret-change-in-production",
@@ -152,9 +166,22 @@ app.post("/api/vehicles", requireSeller, (req, res) => {
   }
 });
 
-app.delete("/api/vehicles/:id", requireSeller, (req, res) => {
+app.delete("/api/vehicles/:id", (req, res) => {
+  const user = syncSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ error: "Non authentifié." });
+  }
+
   const id = Number(req.params.id);
-  const deleted = deleteVehicle(id, req.session.sellerId);
+  const vehicle = getVehicleById(id);
+  if (!vehicle) {
+    return res.status(404).json({ error: "Véhicule introuvable." });
+  }
+
+  const deleted =
+    user.role === "admin"
+      ? deleteVehicleAsAdmin(id)
+      : deleteVehicle(id, user.id);
 
   if (!deleted) {
     return res.status(403).json({ error: "Suppression non autorisée." });
@@ -215,7 +242,7 @@ app.post("/api/admin/sellers", requireAdmin, (req, res) => {
     return res.status(400).json({ error: "Grade vendeur invalide." });
   }
 
-  if (identifiant.trim().toLowerCase() === "admin") {
+  if (identifiant.trim().toLowerCase() === "raheem") {
     return res.status(400).json({ error: "Cet identifiant est réservé." });
   }
 
@@ -263,4 +290,10 @@ app.use(express.static(__dirname));
 
 app.listen(PORT, () => {
   console.log(`Caracas Motors → http://localhost:${PORT}`);
+}).on("error", (error) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`Le port ${PORT} est déjà utilisé. Arrêtez l'autre processus ou utilisez : set PORT=3001&& npm start`);
+    process.exit(1);
+  }
+  throw error;
 });

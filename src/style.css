@@ -625,7 +625,8 @@ body.admin-mode .featured-btn {
   font-weight: 800;
 }
 
-body.seller-mode .delete-btn {
+body.seller-mode .delete-btn,
+body.admin-mode .delete-btn {
   display: grid;
   place-items: center;
 }

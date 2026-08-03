@@ -1,4 +1,16 @@
-const API_BASE = "";
+const API_PORT = "3002";
+
+const API_BASE = (() => {
+  const { protocol, hostname, port } = window.location;
+  if (protocol === "file:") {
+    return `http://localhost:${API_PORT}`;
+  }
+  const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
+  if (isLocal && port && port !== API_PORT) {
+    return `http://localhost:${API_PORT}`;
+  }
+  return "";
+})();
 
 const vehicleGrid = document.getElementById("vehicleGrid");
 const emptyState = document.getElementById("emptyState");
@@ -58,10 +70,7 @@ function buildGradeOptions(selectedGrade) {
 }
 
 function isAdmin() {
-  return (
-    currentSeller?.role === "admin" ||
-    currentSeller?.identifiant === "admin"
-  );
+  return currentSeller?.role === "admin";
 }
 
 function isVendeur() {
@@ -75,20 +84,28 @@ function normalizeSeller(seller) {
 
   return {
     ...seller,
-    role: seller.role === "admin" || seller.identifiant === "admin" ? "admin" : "vendeur"
+    role: seller.role === "admin" ? "admin" : "vendeur"
   };
 }
 
 async function apiFetch(url, options = {}) {
   const { headers = {}, ...rest } = options;
-  const response = await fetch(`${API_BASE}${url}`, {
-    credentials: "include",
-    ...rest,
-    headers: {
-      "Content-Type": "application/json",
-      ...headers
-    }
-  });
+  let response;
+
+  try {
+    response = await fetch(`${API_BASE}${url}`, {
+      credentials: "include",
+      ...rest,
+      headers: {
+        "Content-Type": "application/json",
+        ...headers
+      }
+    });
+  } catch {
+    throw new Error(
+      "Impossible de contacter le serveur. Lancez npm start puis ouvrez http://localhost:3002"
+    );
+  }
 
   const data = await response.json().catch(() => ({}));
 
@@ -140,6 +157,9 @@ function canSetFeatured(vehicle) {
 }
 
 function canDeleteVehicle(vehicle) {
+  if (isAdmin()) {
+    return true;
+  }
   return (
     isVendeur() &&
     vehicle.isCustom &&
@@ -223,7 +243,7 @@ function renderVehicles(list) {
               ? `<button type="button" class="featured-btn${vehicle.isFeatured ? " is-active" : ""}" data-id="${vehicle.id}" aria-label="${vehicle.isFeatured ? "Retirer l'offre du moment" : "Mettre en offre du moment"}">${vehicle.isFeatured ? "★" : "☆"}</button>`
               : ""
           }
-          ${canDeleteVehicle(vehicle) ? `<button type="button" class="delete-btn seller-only" data-id="${vehicle.id}" aria-label="Supprimer">×</button>` : ""}
+          ${canDeleteVehicle(vehicle) ? `<button type="button" class="delete-btn" data-id="${vehicle.id}" aria-label="Supprimer">×</button>` : ""}
         </div>
       </div>
     `;
@@ -677,10 +697,11 @@ async function init() {
     await checkSession();
     await loadVehicles();
     updateSellerModeUI();
-  } catch {
+  } catch (error) {
     emptyState.classList.remove("hidden");
     emptyState.querySelector("p").textContent =
-      "Impossible de charger le catalogue. Lancez le serveur avec npm start.";
+      error?.message ||
+      "Impossible de charger le catalogue. Lancez npm start puis ouvrez http://localhost:3002";
   }
 }
 

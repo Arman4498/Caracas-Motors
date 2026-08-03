@@ -1,0 +1,12 @@
+node_modules/
+package.json
+package-lock.json
+src/package.json
+src/package-lock.json
+database/*.db
+database/*.db-wal
+database/*.db-shm
+src/database/*.db
+src/database/*.db-wal
+src/database/*.db-shm
+.env
