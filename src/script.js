@@ -360,7 +360,7 @@ function updateSellerModeUI() {
   document.body.classList.toggle("admin-mode", loggedIn && admin);
 
   loginPanel.classList.toggle("hidden", loggedIn);
-  sellerPanel.classList.toggle("hidden", !loggedIn || admin);
+  sellerPanel.classList.toggle("hidden", !loggedIn);
   adminPanel.classList.toggle("hidden", !loggedIn || !admin);
   logoutBtn.classList.toggle("hidden", !loggedIn);
 
@@ -374,6 +374,16 @@ function updateSellerModeUI() {
 
   if (admin) {
     loadSellers();
+  }
+
+  const sellerIntro = sellerPanel.querySelector(".form-intro");
+  if (sellerIntro) {
+    sellerIntro.querySelector(".eyebrow").textContent = admin
+      ? "Espace administrateur"
+      : "Espace vendeur";
+    sellerIntro.querySelector("h2").textContent = admin
+      ? "Ajouter un véhicule au catalogue"
+      : "Ajouter un véhicule à vendre";
   }
 
   refreshCatalog();
@@ -574,8 +584,8 @@ async function handleAddVehicle(event) {
     return;
   }
 
-  if (!isSellerLoggedIn() || isAdmin()) {
-    formMessage.textContent = "Connectez-vous en tant que vendeur pour publier un véhicule.";
+  if (!isSellerLoggedIn()) {
+    formMessage.textContent = "Connectez-vous pour publier un véhicule.";
     formMessage.classList.add("form-message-error");
     return;
   }

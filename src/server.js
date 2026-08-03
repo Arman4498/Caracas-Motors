@@ -72,17 +72,6 @@ function syncSessionUser(req) {
   return user;
 }
 
-function requireSeller(req, res, next) {
-  const user = syncSessionUser(req);
-  if (!user) {
-    return res.status(401).json({ error: "Non authentifié." });
-  }
-  if (user.role === "admin") {
-    return res.status(403).json({ error: "Les administrateurs ne peuvent pas gérer le catalogue." });
-  }
-  next();
-}
-
 function requireAdmin(req, res, next) {
   const user = syncSessionUser(req);
   if (!user) {
@@ -132,7 +121,12 @@ function parsePrice(value) {
   return Number(normalized);
 }
 
-app.post("/api/vehicles", requireSeller, (req, res) => {
+app.post("/api/vehicles", (req, res) => {
+  const user = syncSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ error: "Non authentifié." });
+  }
+
   try {
     const { brand, model, price, year, mileage, condition, fuel, transmission, image, description } =
       req.body;
