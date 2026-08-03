@@ -420,6 +420,7 @@ function renderSellersList() {
             ${buildGradeOptions(seller.grade || "employe")}
           </select>
         </div>
+        <button type="button" class="seller-password-btn" data-id="${seller.id}" aria-label="Changer le mot de passe de ${seller.nom}">MDP</button>
         <button type="button" class="seller-delete-btn" data-id="${seller.id}" aria-label="Supprimer ${seller.nom}">×</button>
       </div>
     `;
@@ -468,6 +469,39 @@ async function handleDeleteSeller(id) {
     renderSellersList();
 
     createSellerMessage.textContent = "Compte vendeur supprimé.";
+    createSellerMessage.classList.remove("form-message-error");
+
+    setTimeout(() => {
+      createSellerMessage.textContent = "";
+    }, 2500);
+  } catch (error) {
+    createSellerMessage.textContent = error.message;
+    createSellerMessage.classList.add("form-message-error");
+  }
+}
+
+async function handleUpdateSellerPassword(id) {
+  const seller = sellers.find((item) => item.id === id);
+  if (!seller) return;
+
+  const password = prompt(
+    `Nouveau mot de passe pour ${seller.nom} (${seller.identifiant}) :`
+  );
+  if (password === null) return;
+
+  if (!password.trim() || password.trim().length < 3) {
+    createSellerMessage.textContent = "Le mot de passe doit contenir au moins 3 caractères.";
+    createSellerMessage.classList.add("form-message-error");
+    return;
+  }
+
+  try {
+    await apiFetch(`/api/admin/sellers/${id}/password`, {
+      method: "PATCH",
+      body: JSON.stringify({ password: password.trim() })
+    });
+
+    createSellerMessage.textContent = "Mot de passe mis à jour.";
     createSellerMessage.classList.remove("form-message-error");
 
     setTimeout(() => {
@@ -694,10 +728,18 @@ function initEventListeners() {
   });
 
   sellersList.addEventListener("click", (event) => {
-    const deleteBtn = event.target.closest(".seller-delete-btn");
-    if (!deleteBtn || !isAdmin()) return;
+    if (!isAdmin()) return;
 
-    handleDeleteSeller(Number(deleteBtn.dataset.id));
+    const passwordBtn = event.target.closest(".seller-password-btn");
+    if (passwordBtn) {
+      handleUpdateSellerPassword(Number(passwordBtn.dataset.id));
+      return;
+    }
+
+    const deleteBtn = event.target.closest(".seller-delete-btn");
+    if (deleteBtn) {
+      handleDeleteSeller(Number(deleteBtn.dataset.id));
+    }
   });
 
   logoutBtn.addEventListener("click", handleLogout);

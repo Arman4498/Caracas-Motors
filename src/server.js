@@ -17,6 +17,7 @@ const {
   createSellerAccount,
   getAllSellers,
   updateSellerGrade,
+  updateSellerPassword,
   deleteSeller,
   isValidSellerGrade
 } = require("./db");
@@ -279,6 +280,22 @@ app.patch("/api/admin/sellers/:id/grade", requireAdmin, (req, res) => {
   }
 
   res.json(updated);
+});
+
+app.patch("/api/admin/sellers/:id/password", requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const { password } = req.body;
+
+  if (!password || String(password).length < 3) {
+    return res.status(400).json({ error: "Le mot de passe doit contenir au moins 3 caractères." });
+  }
+
+  const updated = updateSellerPassword(id, password);
+  if (!updated) {
+    return res.status(404).json({ error: "Vendeur introuvable." });
+  }
+
+  res.json({ success: true });
 });
 
 app.delete("/api/admin/sellers/:id", requireAdmin, (req, res) => {

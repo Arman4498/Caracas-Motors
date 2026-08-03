@@ -305,6 +305,28 @@ function deleteSeller(id) {
   return result.changes > 0;
 }
 
+function updateSellerPassword(id, password) {
+  const seller = findSellerById(id);
+  if (!seller || seller.role !== "vendeur") {
+    return null;
+  }
+
+  if (!password || String(password).length < 3) {
+    return null;
+  }
+
+  const passwordHash = bcrypt.hashSync(String(password), 10);
+  const result = db
+    .prepare(readSqlFile("queries/update-vendeur-password.sql"))
+    .run(passwordHash, id);
+
+  if (result.changes === 0) {
+    return null;
+  }
+
+  return findSellerById(id);
+}
+
 module.exports = {
   db,
   initDatabase,
@@ -320,6 +342,7 @@ module.exports = {
   createSellerAccount,
   getAllSellers,
   updateSellerGrade,
+  updateSellerPassword,
   deleteSeller,
   mapSeller,
   SELLER_GRADES,
