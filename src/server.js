@@ -10,6 +10,7 @@ const {
   getFeaturedVehicle,
   setVehicleFeatured,
   createVehicle,
+  updateVehicle,
   deleteVehicle,
   deleteVehicleAsAdmin,
   findSellerByIdentifiant,
@@ -159,6 +160,54 @@ app.post("/api/vehicles", (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Impossible d'enregistrer le véhicule." });
+  }
+});
+
+app.patch("/api/vehicles/:id", requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const existing = getVehicleById(id);
+  if (!existing) {
+    return res.status(404).json({ error: "Véhicule introuvable." });
+  }
+
+  try {
+    const { brand, model, price, year, mileage, condition, fuel, transmission, image, description } =
+      req.body;
+    const priceNum = parsePrice(price);
+
+    if (!String(brand || "").trim()) {
+      return res.status(400).json({ error: "La marque est obligatoire." });
+    }
+
+    if (Number.isNaN(priceNum) || priceNum < 0) {
+      return res.status(400).json({ error: "Le prix est obligatoire." });
+    }
+
+    const updated = updateVehicle(id, {
+      brand: String(brand).trim(),
+      model: String(model || "").trim() || "Non renseigné",
+      year: year ? Number(year) : existing.year,
+      price: priceNum,
+      mileage:
+        mileage !== undefined && mileage !== null && mileage !== ""
+          ? Number(mileage)
+          : existing.mileage,
+      condition: condition === "neuf" ? "neuf" : "occasion",
+      fuel: String(fuel || "").trim() || existing.fuel || "Non renseigné",
+      transmission:
+        String(transmission || "").trim() || existing.transmission || "Non renseigné",
+      image: image?.trim() || null,
+      description: description?.trim() || null
+    });
+
+    if (!updated) {
+      return res.status(500).json({ error: "Impossible de modifier le véhicule." });
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Impossible de modifier le véhicule." });
   }
 });
 

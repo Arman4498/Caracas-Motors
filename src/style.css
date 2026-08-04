@@ -575,6 +575,17 @@ p {
   font-size: 0.86rem;
 }
 
+.edit-btn {
+  width: 43px;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-radius: 10px;
+  display: none;
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .delete-btn {
   width: 43px;
   border: 1px solid #fecdca;
@@ -626,9 +637,15 @@ body.admin-mode .featured-btn {
 }
 
 body.seller-mode .delete-btn,
-body.admin-mode .delete-btn {
+body.admin-mode .delete-btn,
+body.admin-mode .edit-btn {
   display: grid;
   place-items: center;
+}
+
+.form-actions {
+  display: grid;
+  gap: 10px;
 }
 
 .modal-body .btn-secondary.is-active {

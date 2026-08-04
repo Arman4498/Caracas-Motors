@@ -211,6 +211,33 @@ function createVehicle(data) {
   return getVehicleById(result.lastInsertRowid);
 }
 
+function updateVehicle(id, data) {
+  const vehicle = getVehicleById(id);
+  if (!vehicle) {
+    return null;
+  }
+
+  const result = db.prepare(readSqlFile("queries/update-vehicle.sql")).run(
+    data.brand,
+    data.model,
+    data.year,
+    data.price,
+    data.mileage,
+    data.fuel,
+    data.transmission,
+    data.condition,
+    data.image,
+    data.description,
+    id
+  );
+
+  if (result.changes === 0) {
+    return null;
+  }
+
+  return getVehicleById(id);
+}
+
 function deleteVehicle(id, vendeurId) {
   const vehicle = getVehicleById(id);
   if (!vehicle || !vehicle.isCustom || vehicle.vendeurId !== vendeurId) {
@@ -335,6 +362,7 @@ module.exports = {
   getFeaturedVehicle,
   setVehicleFeatured,
   createVehicle,
+  updateVehicle,
   deleteVehicle,
   deleteVehicleAsAdmin,
   findSellerByIdentifiant,

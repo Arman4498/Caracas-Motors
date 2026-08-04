@@ -39,6 +39,9 @@ const heroTitle = document.getElementById("heroTitle");
 const heroPrice = document.getElementById("heroPrice");
 const heroViewBtn = document.getElementById("heroViewBtn");
 const modalFeaturedBtn = document.getElementById("modalFeaturedBtn");
+const modalEditBtn = document.getElementById("modalEditBtn");
+const vehicleSubmitBtn = document.getElementById("vehicleSubmitBtn");
+const vehicleCancelEditBtn = document.getElementById("vehicleCancelEditBtn");
 const menuToggle = document.querySelector(".menu-toggle");
 const nav = document.querySelector(".nav");
 
@@ -47,6 +50,7 @@ let currentSeller = null;
 let sellers = [];
 let featuredVehicleId = null;
 let modalVehicle = null;
+let editingVehicleId = null;
 
 const GRADE_LABELS = {
   patron: "Patron",
@@ -174,6 +178,10 @@ function canDeleteVehicle(vehicle) {
   );
 }
 
+function canEditVehicle() {
+  return isAdmin();
+}
+
 function applyFilters() {
   const search = searchInput.value.trim().toLowerCase();
   const condition = conditionFilter.value;
@@ -243,6 +251,11 @@ function renderVehicles(list) {
               ? `<button type="button" class="featured-btn${vehicle.isFeatured ? " is-active" : ""}" data-id="${vehicle.id}" aria-label="${vehicle.isFeatured ? "Retirer l'offre du moment" : "Mettre en offre du moment"}">${vehicle.isFeatured ? "★" : "☆"}</button>`
               : ""
           }
+          ${
+            canEditVehicle()
+              ? `<button type="button" class="edit-btn" data-id="${vehicle.id}" aria-label="Modifier">✎</button>`
+              : ""
+          }
           ${canDeleteVehicle(vehicle) ? `<button type="button" class="delete-btn" data-id="${vehicle.id}" aria-label="Supprimer">×</button>` : ""}
         </div>
       </div>
@@ -295,6 +308,14 @@ function updateModalFeaturedBtn(vehicle) {
   modalFeaturedBtn.classList.toggle("is-active", vehicle.isFeatured);
 }
 
+function updateModalEditBtn(vehicle) {
+  if (!vehicle || !canEditVehicle()) {
+    modalEditBtn.classList.add("hidden");
+    return;
+  }
+  modalEditBtn.classList.remove("hidden");
+}
+
 function openModal(vehicle) {
   modalVehicle = vehicle;
   const modalImage = document.getElementById("modalImage");
@@ -316,6 +337,7 @@ function openModal(vehicle) {
     vehicle.description || "Aucune description disponible.";
 
   updateModalFeaturedBtn(vehicle);
+  updateModalEditBtn(vehicle);
 
   vehicleModal.classList.remove("hidden");
   document.body.classList.add("modal-open");
@@ -376,17 +398,39 @@ function updateSellerModeUI() {
     loadSellers();
   }
 
+  if (!admin) {
+    cancelEditVehicle(false);
+  }
+
+  updateVehicleFormMode();
+  refreshCatalog();
+}
+
+function updateVehicleFormMode() {
+  const admin = isAdmin();
+  const editing = Boolean(editingVehicleId);
   const sellerIntro = sellerPanel.querySelector(".form-intro");
+
   if (sellerIntro) {
     sellerIntro.querySelector(".eyebrow").textContent = admin
       ? "Espace administrateur"
       : "Espace vendeur";
-    sellerIntro.querySelector("h2").textContent = admin
-      ? "Ajouter un véhicule au catalogue"
-      : "Ajouter un véhicule à vendre";
+
+    if (editing) {
+      sellerIntro.querySelector("h2").textContent = "Modifier une annonce";
+      sellerIntro.querySelector("p").textContent =
+        "Modifiez les informations puis enregistrez pour mettre à jour le catalogue.";
+    } else {
+      sellerIntro.querySelector("h2").textContent = admin
+        ? "Ajouter un véhicule au catalogue"
+        : "Ajouter un véhicule à vendre";
+      sellerIntro.querySelector("p").textContent =
+        "Remplissez le formulaire pour publier immédiatement un véhicule dans le catalogue.";
+    }
   }
 
-  refreshCatalog();
+  vehicleSubmitBtn.textContent = editing ? "Enregistrer les modifications" : "Publier le véhicule";
+  vehicleCancelEditBtn.classList.toggle("hidden", !editing);
 }
 
 function goToAdminSpace() {
@@ -598,6 +642,42 @@ async function handleLogout() {
   refreshCatalog();
 }
 
+function startEditVehicle(id) {
+  if (!canEditVehicle()) return;
+
+  const vehicle = vehicles.find((item) => item.id === id);
+  if (!vehicle) return;
+
+  editingVehicleId = vehicle.id;
+  document.getElementById("brand").value = vehicle.brand || "";
+  document.getElementById("model").value =
+    vehicle.model === "Non renseigné" ? "" : vehicle.model || "";
+  document.getElementById("price").value = vehicle.price ?? "";
+  document.getElementById("condition").value =
+    vehicle.condition === "neuf" ? "neuf" : "occasion";
+  document.getElementById("image").value = vehicle.image || "";
+  document.getElementById("description").value = vehicle.description || "";
+
+  formMessage.textContent = "";
+  formMessage.classList.remove("form-message-error");
+  updateVehicleFormMode();
+  closeModal();
+
+  window.location.hash = "ajouter";
+  document.getElementById("ajouter")?.scrollIntoView({ behavior: "smooth" });
+  document.getElementById("brand")?.focus();
+}
+
+function cancelEditVehicle(resetForm = true) {
+  editingVehicleId = null;
+  if (resetForm) {
+    vehicleForm.reset();
+  }
+  formMessage.textContent = "";
+  formMessage.classList.remove("form-message-error");
+  updateVehicleFormMode();
+}
+
 async function handleAddVehicle(event) {
   event.preventDefault();
   formMessage.textContent = "";
@@ -605,6 +685,7 @@ async function handleAddVehicle(event) {
   const brand = document.getElementById("brand").value.trim();
   const priceValue = document.getElementById("price").value.trim();
   const price = Number(priceValue);
+  const isEditing = Boolean(editingVehicleId);
 
   if (!brand) {
     formMessage.textContent = "La marque est obligatoire.";
@@ -624,28 +705,47 @@ async function handleAddVehicle(event) {
     return;
   }
 
+  if (isEditing && !isAdmin()) {
+    formMessage.textContent = "Seul un administrateur peut modifier une annonce.";
+    formMessage.classList.add("form-message-error");
+    return;
+  }
+
   try {
     const imageValue = document.getElementById("image").value.trim();
+    const existing = isEditing
+      ? vehicles.find((item) => item.id === editingVehicleId)
+      : null;
+
     const payload = {
       brand,
       model: document.getElementById("model").value.trim() || "Non renseigné",
       price,
-      year: new Date().getFullYear(),
-      mileage: 0,
+      year: existing?.year || new Date().getFullYear(),
+      mileage: existing?.mileage ?? 0,
       condition: document.getElementById("condition").value,
-      fuel: "Non renseigné",
-      transmission: "Non renseigné",
+      fuel: existing?.fuel || "Non renseigné",
+      transmission: existing?.transmission || "Non renseigné",
       image: imageValue || null,
       description: document.getElementById("description").value.trim()
     };
 
-    await apiFetch("/api/vehicles", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
+    if (isEditing) {
+      await apiFetch(`/api/vehicles/${editingVehicleId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+      });
+      cancelEditVehicle(true);
+      formMessage.textContent = "Annonce mise à jour avec succès !";
+    } else {
+      await apiFetch("/api/vehicles", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      vehicleForm.reset();
+      formMessage.textContent = "Véhicule publié avec succès !";
+    }
 
-    vehicleForm.reset();
-    formMessage.textContent = "Véhicule publié avec succès !";
     formMessage.classList.remove("form-message-error");
 
     await loadVehicles();
@@ -684,6 +784,7 @@ function initEventListeners() {
   vehicleGrid.addEventListener("click", (event) => {
     const viewBtn = event.target.closest(".view-btn");
     const deleteBtn = event.target.closest(".delete-btn");
+    const editBtn = event.target.closest(".edit-btn");
     const featuredBtn = event.target.closest(".featured-btn");
 
     if (viewBtn) {
@@ -696,6 +797,10 @@ function initEventListeners() {
       if (vehicle && canSetFeatured(vehicle)) {
         handleSetFeatured(Number(featuredBtn.dataset.id), !vehicle.isFeatured);
       }
+    }
+
+    if (editBtn && canEditVehicle()) {
+      startEditVehicle(Number(editBtn.dataset.id));
     }
 
     if (deleteBtn && isSellerLoggedIn()) {
@@ -714,6 +819,16 @@ function initEventListeners() {
     if (modalVehicle && canSetFeatured(modalVehicle)) {
       handleSetFeatured(modalVehicle.id, !modalVehicle.isFeatured);
     }
+  });
+
+  modalEditBtn.addEventListener("click", () => {
+    if (modalVehicle && canEditVehicle()) {
+      startEditVehicle(modalVehicle.id);
+    }
+  });
+
+  vehicleCancelEditBtn.addEventListener("click", () => {
+    cancelEditVehicle(true);
   });
 
   vehicleForm.addEventListener("submit", handleAddVehicle);

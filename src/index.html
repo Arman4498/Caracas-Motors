@@ -178,7 +178,10 @@
                 <textarea id="description" rows="4" placeholder="Description du véhicule"></textarea>
               </div>
 
-              <button type="submit" class="btn btn-primary btn-full">Publier le véhicule</button>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-full" id="vehicleSubmitBtn">Publier le véhicule</button>
+                <button type="button" class="btn btn-secondary btn-full hidden" id="vehicleCancelEditBtn">Annuler la modification</button>
+              </div>
               <p class="form-message" id="formMessage" role="status"></p>
             </form>
           </div>
@@ -245,6 +248,9 @@
         <p id="modalDescription"></p>
         <button type="button" class="btn btn-secondary btn-full hidden" id="modalFeaturedBtn">
           Mettre en offre du moment
+        </button>
+        <button type="button" class="btn btn-secondary btn-full hidden" id="modalEditBtn">
+          Modifier l'annonce
         </button>
         <a href="mailto:contact@caracasmotors.fr" class="btn btn-primary btn-full">Contacter le vendeur</a>
       </div>
