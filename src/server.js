@@ -157,7 +157,7 @@ app.post("/api/vehicles", (req, res) => {
     const vehicle = createVehicle({
       vendeurId: req.session.sellerId,
       brand: String(brand).trim(),
-      model: String(model || "").trim() || "Non renseigné",
+      model: String(model || "").trim(),
       year: year ? Number(year) : new Date().getFullYear(),
       price: priceNum,
       mileage: mileage !== undefined && mileage !== null && mileage !== "" ? Number(mileage) : 0,
@@ -213,7 +213,7 @@ app.patch("/api/vehicles/:id", requireAdmin, (req, res) => {
 
     const updated = updateVehicle(id, {
       brand: String(brand).trim(),
-      model: String(model || "").trim() || "Non renseigné",
+      model: String(model || "").trim(),
       year: year ? Number(year) : existing.year,
       price: priceNum,
       mileage:

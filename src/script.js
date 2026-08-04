@@ -163,11 +163,24 @@ function isSellerLoggedIn() {
 }
 
 function formatPrice(price) {
-  return new Intl.NumberFormat("fr-FR", {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "EUR",
+    currency: "USD",
     maximumFractionDigits: 0
   }).format(price);
+}
+
+function getVehicleModel(vehicle) {
+  const model = vehicle?.model?.trim();
+  if (!model || model === "Non renseigné") {
+    return "";
+  }
+  return model;
+}
+
+function getVehicleName(vehicle) {
+  const model = getVehicleModel(vehicle);
+  return model ? `${vehicle.brand} ${model}` : vehicle.brand;
 }
 
 function getConditionLabel(condition) {
@@ -256,7 +269,7 @@ function applyFilters() {
     const matchesSearch =
       !search ||
       vehicle.brand.toLowerCase().includes(search) ||
-      vehicle.model.toLowerCase().includes(search);
+      getVehicleModel(vehicle).toLowerCase().includes(search);
     const matchesCondition = !condition || vehicle.condition === condition;
     const matchesPerformance = !performance || vehicle.performance === performance;
     return matchesSearch && matchesCondition && matchesPerformance;
@@ -308,12 +321,12 @@ function renderVehicles(list) {
 
     card.innerHTML = `
       <div class="vehicle-image">
-        <img src="${imageUrl}" alt="${vehicle.brand} ${vehicle.model}" onerror="handleVehicleImageError(event)">
+        <img src="${imageUrl}" alt="${getVehicleName(vehicle)}" onerror="handleVehicleImageError(event)">
         <div class="vehicle-tag-stack">${badge}${perfBadge}</div>
         ${vehicle.isFeatured ? `<span class="vehicle-featured-tag">Offre du moment</span>` : ""}
       </div>
       <div class="vehicle-body">
-        <h3 class="vehicle-title">${vehicle.brand} ${vehicle.model}</h3>
+        <h3 class="vehicle-title">${getVehicleName(vehicle)}</h3>
         <p class="vehicle-price">${formatPrice(vehicle.price)}</p>
         <div class="vehicle-actions">
           <button type="button" class="btn btn-primary view-btn" data-id="${vehicle.id}">Voir détails</button>
@@ -353,14 +366,14 @@ function renderHeroFeatured() {
 
   featuredVehicleId = featured.id;
   heroCard.classList.remove("hero-card--empty");
-  heroTitle.textContent = `${featured.brand} ${featured.model}`;
+  heroTitle.textContent = getVehicleName(featured);
   heroPrice.textContent = formatPrice(featured.price);
   heroPrice.classList.remove("hidden");
   heroViewBtn.classList.remove("hidden");
 
   const imageUrl = getVehicleImage(featured);
   heroImage.src = imageUrl;
-  heroImage.alt = `${featured.brand} ${featured.model}`;
+  heroImage.alt = getVehicleName(featured);
   heroImage.onerror = handleVehicleImageError;
   heroImage.classList.remove("hidden");
   heroImagePlaceholder.classList.add("hidden");
@@ -394,7 +407,7 @@ function openModal(vehicle) {
   const imageUrl = getVehicleImage(vehicle);
 
   modalImage.src = imageUrl;
-  modalImage.alt = `${vehicle.brand} ${vehicle.model}`;
+  modalImage.alt = getVehicleName(vehicle);
   modalImage.onerror = handleVehicleImageError;
   modalImage.classList.remove("hidden");
   modalContent.classList.remove("modal-content--no-image");
@@ -403,7 +416,7 @@ function openModal(vehicle) {
   document.getElementById("modalCondition").className = `vehicle-tag ${getConditionBadgeClass(vehicle.condition)}`;
   document.getElementById("modalPerformance").textContent = getPerformanceLabel(vehicle.performance);
   document.getElementById("modalPerformance").className = `vehicle-tag ${getPerformanceBadgeClass(vehicle.performance)}`;
-  document.getElementById("modalTitle").textContent = `${vehicle.brand} ${vehicle.model}`;
+  document.getElementById("modalTitle").textContent = getVehicleName(vehicle);
   document.getElementById("modalPrice").textContent = formatPrice(vehicle.price);
   document.getElementById("modalDescription").textContent =
     vehicle.description || "Aucune description disponible.";
@@ -722,8 +735,7 @@ function startEditVehicle(id) {
 
   editingVehicleId = vehicle.id;
   document.getElementById("brand").value = vehicle.brand || "";
-  document.getElementById("model").value =
-    vehicle.model === "Non renseigné" ? "" : vehicle.model || "";
+  document.getElementById("model").value = getVehicleModel(vehicle);
   document.getElementById("price").value = vehicle.price ?? "";
   document.getElementById("condition").value =
     vehicle.condition === "neuf" ? "neuf" : "occasion";
@@ -796,7 +808,7 @@ async function handleAddVehicle(event) {
 
     const payload = {
       brand,
-      model: document.getElementById("model").value.trim() || "Non renseigné",
+      model: document.getElementById("model").value.trim(),
       price,
       year: existing?.year || new Date().getFullYear(),
       mileage: existing?.mileage ?? 0,
@@ -842,7 +854,7 @@ async function handleDeleteVehicle(id) {
   const vehicle = vehicles.find((v) => v.id === id);
   if (!vehicle || !canDeleteVehicle(vehicle)) return;
 
-  const confirmed = confirm(`Supprimer ${vehicle.brand} ${vehicle.model} du catalogue ?`);
+  const confirmed = confirm(`Supprimer ${getVehicleName(vehicle)} du catalogue ?`);
   if (!confirmed) return;
 
   try {
