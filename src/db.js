@@ -70,7 +70,7 @@ function ensurePerformanceColumn() {
 }
 
 const ADMIN_IDENTIFIANT = "Raheem";
-const ADMIN_PASSWORD = "Raheemleenutrofdemerde";
+const ADMIN_PASSWORD = "Enutrof";
 
 const SELLER_GRADES = [
   "patron",
