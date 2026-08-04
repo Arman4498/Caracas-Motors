@@ -9,6 +9,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script>
+    (function () {
+      var theme = localStorage.getItem("caracas-theme");
+      if (theme !== "dark" && theme !== "light") {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
 </head>
 
 <body>
@@ -29,6 +38,10 @@
         <a href="#accueil">Accueil</a>
         <a href="#vehicules">Véhicules</a>
         <a href="#ajouter" class="nav-cta" id="sellerNavLink">Espace vendeur</a>
+        <button type="button" class="theme-toggle" id="themeToggle" aria-label="Activer le thème sombre" title="Thème">
+          <span class="theme-icon-light" aria-hidden="true">☾</span>
+          <span class="theme-icon-dark" aria-hidden="true">☀</span>
+        </button>
         <button type="button" class="nav-logout hidden" id="logoutBtn">Déconnexion</button>
       </nav>
     </div>
@@ -85,12 +98,18 @@
               <option value="neuf">Neuf</option>
               <option value="occasion">Occasion</option>
             </select>
+            <select id="performanceFilter" aria-label="Filtrer par performance">
+              <option value="">Toutes les perf</option>
+              <option value="pas_perf">Pas perf</option>
+              <option value="peu_perf">Perf</option>
+              <option value="full_perf">Full perf</option>
+            </select>
             <select id="sortFilter" aria-label="Trier les véhicules">
               <option value="default">Tri par défaut</option>
               <option value="price-asc">Prix croissant</option>
               <option value="price-desc">Prix décroissant</option>
-              <option value="year-desc">Année récente</option>
-              <option value="mileage-asc">Kilométrage croissant</option>
+              <option value="perf-desc">Perf la plus élevée</option>
+              <option value="perf-asc">Perf la plus faible</option>
             </select>
           </div>
         </div>
@@ -169,6 +188,15 @@
               </div>
 
               <div class="form-group">
+                <label for="performance">Perf de la voiture *</label>
+                <select id="performance" required aria-label="Niveau de performance">
+                  <option value="pas_perf">Pas perf</option>
+                  <option value="peu_perf">Perf</option>
+                  <option value="full_perf">Full perf</option>
+                </select>
+              </div>
+
+              <div class="form-group">
                 <label for="image">Adresse URL de l'image</label>
                 <input type="text" id="image" placeholder="https://...">
               </div>
@@ -241,7 +269,7 @@
       <div class="modal-body">
         <div class="modal-tags">
           <span class="vehicle-tag" id="modalCondition"></span>
-          <span class="vehicle-tag" id="modalFuel"></span>
+          <span class="vehicle-tag" id="modalPerformance"></span>
         </div>
         <h2 id="modalTitle"></h2>
         <p class="modal-price" id="modalPrice"></p>

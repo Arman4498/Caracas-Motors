@@ -7,6 +7,7 @@ SET brand = ?,
     fuel = ?,
     transmission = ?,
     condition = ?,
+    performance = ?,
     image = ?,
     description = ?
 WHERE id = ?;

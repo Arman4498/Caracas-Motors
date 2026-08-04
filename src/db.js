@@ -48,6 +48,27 @@ function ensureFeaturedColumn() {
   }
 }
 
+const PERFORMANCE_LEVELS = ["pas_perf", "peu_perf", "full_perf"];
+
+function isValidPerformance(performance) {
+  return PERFORMANCE_LEVELS.includes(performance);
+}
+
+function normalizePerformance(performance) {
+  return isValidPerformance(performance) ? performance : "pas_perf";
+}
+
+function ensurePerformanceColumn() {
+  const columns = db.prepare("PRAGMA table_info(vehicules)").all();
+  if (!columns.some((col) => col.name === "performance")) {
+    db.exec("ALTER TABLE vehicules ADD COLUMN performance TEXT DEFAULT 'pas_perf'");
+  }
+
+  db.prepare(
+    "UPDATE vehicules SET performance = 'pas_perf' WHERE performance IS NULL OR TRIM(performance) = '' OR performance NOT IN ('pas_perf', 'peu_perf', 'full_perf')"
+  ).run();
+}
+
 const ADMIN_IDENTIFIANT = "Raheem";
 const ADMIN_PASSWORD = "Raheemleenutrofdemerde";
 
@@ -105,6 +126,7 @@ function initDatabase() {
   ensureRoleColumn();
   ensureGradeColumn();
   ensureFeaturedColumn();
+  ensurePerformanceColumn();
   normalizeRoles();
   normalizeGrades();
 
@@ -175,6 +197,7 @@ function mapVehicle(row) {
     fuel: row.fuel,
     transmission: row.transmission,
     condition: row.condition,
+    performance: normalizePerformance(row.performance),
     image: row.image,
     description: row.description,
     isCustom: Boolean(row.is_custom),
@@ -194,6 +217,8 @@ function getVehicleById(id) {
 }
 
 function createVehicle(data) {
+  ensurePerformanceColumn();
+
   const result = db.prepare(readSqlFile("queries/insert-vehicle.sql")).run(
     data.vendeurId,
     data.brand,
@@ -204,6 +229,7 @@ function createVehicle(data) {
     data.fuel,
     data.transmission,
     data.condition,
+    normalizePerformance(data.performance),
     data.image,
     data.description
   );
@@ -212,6 +238,8 @@ function createVehicle(data) {
 }
 
 function updateVehicle(id, data) {
+  ensurePerformanceColumn();
+
   const vehicle = getVehicleById(id);
   if (!vehicle) {
     return null;
@@ -226,6 +254,7 @@ function updateVehicle(id, data) {
     data.fuel,
     data.transmission,
     data.condition,
+    normalizePerformance(data.performance),
     data.image,
     data.description,
     id
@@ -374,5 +403,8 @@ module.exports = {
   deleteSeller,
   mapSeller,
   SELLER_GRADES,
-  isValidSellerGrade
+  isValidSellerGrade,
+  PERFORMANCE_LEVELS,
+  isValidPerformance,
+  normalizePerformance
 };

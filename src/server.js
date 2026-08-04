@@ -20,7 +20,8 @@ const {
   updateSellerGrade,
   updateSellerPassword,
   deleteSeller,
-  isValidSellerGrade
+  isValidSellerGrade,
+  normalizePerformance
 } = require("./db");
 
 const app = express();
@@ -130,8 +131,19 @@ app.post("/api/vehicles", (req, res) => {
   }
 
   try {
-    const { brand, model, price, year, mileage, condition, fuel, transmission, image, description } =
-      req.body;
+    const {
+      brand,
+      model,
+      price,
+      year,
+      mileage,
+      condition,
+      fuel,
+      transmission,
+      performance,
+      image,
+      description
+    } = req.body;
     const priceNum = parsePrice(price);
 
     if (!String(brand || "").trim()) {
@@ -150,6 +162,7 @@ app.post("/api/vehicles", (req, res) => {
       price: priceNum,
       mileage: mileage !== undefined && mileage !== null && mileage !== "" ? Number(mileage) : 0,
       condition: condition === "neuf" ? "neuf" : "occasion",
+      performance: normalizePerformance(performance),
       fuel: String(fuel || "").trim() || "Non renseigné",
       transmission: String(transmission || "").trim() || "Non renseigné",
       image: image?.trim() || null,
@@ -158,8 +171,12 @@ app.post("/api/vehicles", (req, res) => {
 
     res.status(201).json(vehicle);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Impossible d'enregistrer le véhicule." });
+    console.error("POST /api/vehicles:", error);
+    const detail =
+      error && /no column named performance/i.test(String(error.message || ""))
+        ? "Colonnes à jour manquantes. Redémarrez le serveur avec npm start."
+        : "Impossible d'enregistrer le véhicule.";
+    res.status(500).json({ error: detail });
   }
 });
 
@@ -171,8 +188,19 @@ app.patch("/api/vehicles/:id", requireAdmin, (req, res) => {
   }
 
   try {
-    const { brand, model, price, year, mileage, condition, fuel, transmission, image, description } =
-      req.body;
+    const {
+      brand,
+      model,
+      price,
+      year,
+      mileage,
+      condition,
+      fuel,
+      transmission,
+      performance,
+      image,
+      description
+    } = req.body;
     const priceNum = parsePrice(price);
 
     if (!String(brand || "").trim()) {
@@ -193,6 +221,7 @@ app.patch("/api/vehicles/:id", requireAdmin, (req, res) => {
           ? Number(mileage)
           : existing.mileage,
       condition: condition === "neuf" ? "neuf" : "occasion",
+      performance: normalizePerformance(performance || existing.performance),
       fuel: String(fuel || "").trim() || existing.fuel || "Non renseigné",
       transmission:
         String(transmission || "").trim() || existing.transmission || "Non renseigné",

@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS vehicules (
   fuel TEXT NOT NULL,
   transmission TEXT NOT NULL,
   condition TEXT NOT NULL CHECK(condition IN ('neuf', 'occasion')),
+  performance TEXT NOT NULL DEFAULT 'pas_perf' CHECK(performance IN ('pas_perf', 'peu_perf', 'full_perf')),
   image TEXT,
   description TEXT,
   is_custom INTEGER DEFAULT 0,

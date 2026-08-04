@@ -18,6 +18,7 @@ const vehicleGrid = document.getElementById("vehicleGrid");
 const emptyState = document.getElementById("emptyState");
 const searchInput = document.getElementById("searchInput");
 const conditionFilter = document.getElementById("conditionFilter");
+const performanceFilter = document.getElementById("performanceFilter");
 const sortFilter = document.getElementById("sortFilter");
 const vehicleForm = document.getElementById("vehicleForm");
 const formMessage = document.getElementById("formMessage");
@@ -44,6 +45,7 @@ const vehicleSubmitBtn = document.getElementById("vehicleSubmitBtn");
 const vehicleCancelEditBtn = document.getElementById("vehicleCancelEditBtn");
 const menuToggle = document.querySelector(".menu-toggle");
 const nav = document.querySelector(".nav");
+const themeToggle = document.getElementById("themeToggle");
 
 let vehicles = [];
 let currentSeller = null;
@@ -51,6 +53,35 @@ let sellers = [];
 let featuredVehicleId = null;
 let modalVehicle = null;
 let editingVehicleId = null;
+
+const THEME_STORAGE_KEY = "caracas-theme";
+
+function getPreferredTheme() {
+  const saved = localStorage.getItem(THEME_STORAGE_KEY);
+  if (saved === "dark" || saved === "light") {
+    return saved;
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme) {
+  const nextTheme = theme === "dark" ? "dark" : "light";
+  document.documentElement.setAttribute("data-theme", nextTheme);
+  localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+
+  if (themeToggle) {
+    themeToggle.setAttribute(
+      "aria-label",
+      nextTheme === "dark" ? "Activer le thème clair" : "Activer le thème sombre"
+    );
+    themeToggle.title = nextTheme === "dark" ? "Thème clair" : "Thème sombre";
+  }
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  applyTheme(current === "dark" ? "light" : "dark");
+}
 
 const GRADE_LABELS = {
   patron: "Patron",
@@ -147,6 +178,39 @@ function getConditionBadgeClass(condition) {
   return condition === "neuf" ? "badge-neuf" : "badge-occasion";
 }
 
+function getPerformanceLabel(performance) {
+  switch (performance) {
+    case "full_perf":
+      return "Full perf";
+    case "peu_perf":
+      return "Perf";
+    default:
+      return "Pas perf";
+  }
+}
+
+function getPerformanceBadgeClass(performance) {
+  switch (performance) {
+    case "full_perf":
+      return "badge-full-perf";
+    case "peu_perf":
+      return "badge-peu-perf";
+    default:
+      return "badge-pas-perf";
+  }
+}
+
+function getPerformanceRank(performance) {
+  switch (performance) {
+    case "full_perf":
+      return 3;
+    case "peu_perf":
+      return 2;
+    default:
+      return 1;
+  }
+}
+
 function getVehicleImage(vehicle) {
   const image = vehicle.image?.trim();
   return image || DEFAULT_VEHICLE_IMAGE;
@@ -185,6 +249,7 @@ function canEditVehicle() {
 function applyFilters() {
   const search = searchInput.value.trim().toLowerCase();
   const condition = conditionFilter.value;
+  const performance = performanceFilter.value;
   const sort = sortFilter.value;
 
   let filtered = vehicles.filter((vehicle) => {
@@ -193,7 +258,8 @@ function applyFilters() {
       vehicle.brand.toLowerCase().includes(search) ||
       vehicle.model.toLowerCase().includes(search);
     const matchesCondition = !condition || vehicle.condition === condition;
-    return matchesSearch && matchesCondition;
+    const matchesPerformance = !performance || vehicle.performance === performance;
+    return matchesSearch && matchesCondition && matchesPerformance;
   });
 
   switch (sort) {
@@ -203,11 +269,15 @@ function applyFilters() {
     case "price-desc":
       filtered.sort((a, b) => b.price - a.price);
       break;
-    case "year-desc":
-      filtered.sort((a, b) => b.year - a.year);
+    case "perf-desc":
+      filtered.sort(
+        (a, b) => getPerformanceRank(b.performance) - getPerformanceRank(a.performance)
+      );
       break;
-    case "mileage-asc":
-      filtered.sort((a, b) => a.mileage - b.mileage);
+    case "perf-asc":
+      filtered.sort(
+        (a, b) => getPerformanceRank(a.performance) - getPerformanceRank(b.performance)
+      );
       break;
     default:
       break;
@@ -230,6 +300,7 @@ function renderVehicles(list) {
     const imageUrl = getVehicleImage(vehicle);
     const card = document.createElement("article");
     const badge = `<span class="vehicle-tag ${getConditionBadgeClass(vehicle.condition)}">${getConditionLabel(vehicle.condition)}</span>`;
+    const perfBadge = `<span class="vehicle-tag ${getPerformanceBadgeClass(vehicle.performance)}">${getPerformanceLabel(vehicle.performance)}</span>`;
 
     card.className = ["vehicle-card", vehicle.isFeatured ? "is-featured" : ""]
       .filter(Boolean)
@@ -238,7 +309,7 @@ function renderVehicles(list) {
     card.innerHTML = `
       <div class="vehicle-image">
         <img src="${imageUrl}" alt="${vehicle.brand} ${vehicle.model}" onerror="handleVehicleImageError(event)">
-        ${badge}
+        <div class="vehicle-tag-stack">${badge}${perfBadge}</div>
         ${vehicle.isFeatured ? `<span class="vehicle-featured-tag">Offre du moment</span>` : ""}
       </div>
       <div class="vehicle-body">
@@ -330,7 +401,8 @@ function openModal(vehicle) {
 
   document.getElementById("modalCondition").textContent = getConditionLabel(vehicle.condition);
   document.getElementById("modalCondition").className = `vehicle-tag ${getConditionBadgeClass(vehicle.condition)}`;
-  document.getElementById("modalFuel").textContent = vehicle.fuel;
+  document.getElementById("modalPerformance").textContent = getPerformanceLabel(vehicle.performance);
+  document.getElementById("modalPerformance").className = `vehicle-tag ${getPerformanceBadgeClass(vehicle.performance)}`;
   document.getElementById("modalTitle").textContent = `${vehicle.brand} ${vehicle.model}`;
   document.getElementById("modalPrice").textContent = formatPrice(vehicle.price);
   document.getElementById("modalDescription").textContent =
@@ -655,6 +727,11 @@ function startEditVehicle(id) {
   document.getElementById("price").value = vehicle.price ?? "";
   document.getElementById("condition").value =
     vehicle.condition === "neuf" ? "neuf" : "occasion";
+  document.getElementById("performance").value = ["pas_perf", "peu_perf", "full_perf"].includes(
+    vehicle.performance
+  )
+    ? vehicle.performance
+    : "pas_perf";
   document.getElementById("image").value = vehicle.image || "";
   document.getElementById("description").value = vehicle.description || "";
 
@@ -724,6 +801,7 @@ async function handleAddVehicle(event) {
       year: existing?.year || new Date().getFullYear(),
       mileage: existing?.mileage ?? 0,
       condition: document.getElementById("condition").value,
+      performance: document.getElementById("performance").value,
       fuel: existing?.fuel || "Non renseigné",
       transmission: existing?.transmission || "Non renseigné",
       image: imageValue || null,
@@ -777,8 +855,11 @@ async function handleDeleteVehicle(id) {
 }
 
 function initEventListeners() {
+  themeToggle?.addEventListener("click", toggleTheme);
+
   searchInput.addEventListener("input", refreshCatalog);
   conditionFilter.addEventListener("change", refreshCatalog);
+  performanceFilter.addEventListener("change", refreshCatalog);
   sortFilter.addEventListener("change", refreshCatalog);
 
   vehicleGrid.addEventListener("click", (event) => {
@@ -881,6 +962,7 @@ function initEventListeners() {
 }
 
 async function init() {
+  applyTheme(getPreferredTheme());
   initEventListeners();
 
   try {
