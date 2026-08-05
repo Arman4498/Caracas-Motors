@@ -24,6 +24,10 @@ function readSqlFile(filename) {
   return fs.readFileSync(path.join(SQL_DIR, filename), "utf8").trim();
 }
 
+function readInsertSql(filename) {
+  return `${readSqlFile(filename).replace(/;\s*$/, "")} RETURNING id`;
+}
+
 function toPgSql(sql) {
   let index = 0;
   return sql.replace(/\?/g, () => `$${++index}`);
@@ -105,7 +109,7 @@ async function createSellerAccount({ identifiant, password, nom, role = "vendeur
   const passwordHash = hashPassword(password);
   const sellerGrade = role === "admin" ? null : grade;
   const result = await query(
-    `${readSqlFile("queries/insert-vendeur.sql")} RETURNING id`,
+    readInsertSql("queries/insert-vendeur.sql"),
     [identifiant.trim(), passwordHash, nom.trim(), role, sellerGrade]
   );
   return findSellerById(result.rows[0].id);
@@ -167,7 +171,7 @@ async function getVehicleById(id) {
 
 async function createVehicle(data) {
   const result = await query(
-    `${readSqlFile("queries/insert-vehicle.sql")} RETURNING id`,
+    readInsertSql("queries/insert-vehicle.sql"),
     [
       data.vendeurId,
       data.brand,
