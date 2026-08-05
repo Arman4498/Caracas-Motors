@@ -55,6 +55,7 @@ let modalVehicle = null;
 let editingVehicleId = null;
 
 const THEME_STORAGE_KEY = "caracas-theme";
+const ERROR_MESSAGE = "Erreur";
 
 function getPreferredTheme() {
   const saved = localStorage.getItem(THEME_STORAGE_KEY);
@@ -139,20 +140,13 @@ async function apiFetch(url, options = {}) {
       }
     });
   } catch {
-    throw new Error(
-      "Impossible de contacter le serveur. Lancez npm start puis ouvrez http://localhost:3002"
-    );
+    throw new Error(ERROR_MESSAGE);
   }
 
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const message =
-      data.error ||
-      (response.status === 404
-        ? "Route API introuvable. Redémarrez le serveur avec npm start."
-        : `Erreur ${response.status}`);
-    throw new Error(message);
+    throw new Error(ERROR_MESSAGE);
   }
 
   return data;
@@ -456,7 +450,7 @@ async function handleSetFeatured(id, featured) {
       }
     }
   } catch (error) {
-    alert(error.message);
+    alert(ERROR_MESSAGE);
   }
 }
 
@@ -580,7 +574,7 @@ async function handleUpdateSellerGrade(id, grade, selectEl) {
     }, 2500);
   } catch (error) {
     selectEl.value = previousValue;
-    createSellerMessage.textContent = error.message;
+    createSellerMessage.textContent = ERROR_MESSAGE;
     createSellerMessage.classList.add("form-message-error");
   }
 }
@@ -604,7 +598,7 @@ async function handleDeleteSeller(id) {
       createSellerMessage.textContent = "";
     }, 2500);
   } catch (error) {
-    createSellerMessage.textContent = error.message;
+    createSellerMessage.textContent = ERROR_MESSAGE;
     createSellerMessage.classList.add("form-message-error");
   }
 }
@@ -619,7 +613,7 @@ async function handleUpdateSellerPassword(id) {
   if (password === null) return;
 
   if (!password.trim() || password.trim().length < 3) {
-    createSellerMessage.textContent = "Le mot de passe doit contenir au moins 3 caractères.";
+    createSellerMessage.textContent = ERROR_MESSAGE;
     createSellerMessage.classList.add("form-message-error");
     return;
   }
@@ -637,7 +631,7 @@ async function handleUpdateSellerPassword(id) {
       createSellerMessage.textContent = "";
     }, 2500);
   } catch (error) {
-    createSellerMessage.textContent = error.message;
+    createSellerMessage.textContent = ERROR_MESSAGE;
     createSellerMessage.classList.add("form-message-error");
   }
 }
@@ -650,7 +644,7 @@ async function loadSellers() {
     renderSellersList();
     createSellerMessage.classList.remove("form-message-error");
   } catch (error) {
-    sellersList.innerHTML = `<li class="sellers-list-empty">${error.message}</li>`;
+    sellersList.innerHTML = `<li class='sellers-list-empty'>${ERROR_MESSAGE}</li>`;
   }
 }
 
@@ -679,7 +673,7 @@ async function handleCreateSeller(event) {
       createSellerMessage.textContent = "";
     }, 3000);
   } catch (error) {
-    createSellerMessage.textContent = error.message;
+    createSellerMessage.textContent = ERROR_MESSAGE;
     createSellerMessage.classList.add("form-message-error");
   }
 }
@@ -716,7 +710,7 @@ async function handleLogin(event) {
       goToAdminSpace();
     }
   } catch (error) {
-    loginMessage.textContent = error.message;
+    loginMessage.textContent = ERROR_MESSAGE;
   }
 }
 
@@ -777,25 +771,25 @@ async function handleAddVehicle(event) {
   const isEditing = Boolean(editingVehicleId);
 
   if (!brand) {
-    formMessage.textContent = "La marque est obligatoire.";
+    formMessage.textContent = ERROR_MESSAGE;
     formMessage.classList.add("form-message-error");
     return;
   }
 
   if (!priceValue || Number.isNaN(price) || price < 0) {
-    formMessage.textContent = "Le prix est obligatoire.";
+    formMessage.textContent = ERROR_MESSAGE;
     formMessage.classList.add("form-message-error");
     return;
   }
 
   if (!isSellerLoggedIn()) {
-    formMessage.textContent = "Connectez-vous pour publier un véhicule.";
+    formMessage.textContent = ERROR_MESSAGE;
     formMessage.classList.add("form-message-error");
     return;
   }
 
   if (isEditing && !isAdmin()) {
-    formMessage.textContent = "Seul un administrateur peut modifier une annonce.";
+    formMessage.textContent = ERROR_MESSAGE;
     formMessage.classList.add("form-message-error");
     return;
   }
@@ -845,7 +839,7 @@ async function handleAddVehicle(event) {
       formMessage.textContent = "";
     }, 3000);
   } catch (error) {
-    formMessage.textContent = error.message;
+    formMessage.textContent = ERROR_MESSAGE;
     formMessage.classList.add("form-message-error");
   }
 }
@@ -862,7 +856,7 @@ async function handleDeleteVehicle(id) {
     await loadVehicles();
     refreshCatalog();
   } catch (error) {
-    alert(error.message);
+    alert(ERROR_MESSAGE);
   }
 }
 
@@ -983,9 +977,7 @@ async function init() {
     updateSellerModeUI();
   } catch (error) {
     emptyState.classList.remove("hidden");
-    emptyState.querySelector("p").textContent =
-      error?.message ||
-      "Impossible de charger le catalogue. Lancez npm start puis ouvrez http://localhost:3002";
+    emptyState.querySelector("p").textContent = ERROR_MESSAGE;
   }
 }
 

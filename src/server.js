@@ -21,11 +21,17 @@ const {
   updateSellerPassword,
   deleteSeller,
   isValidSellerGrade,
-  normalizePerformance
+  normalizePerformance,
+  isReservedIdentifiant
 } = require("./db");
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+const ERROR = "Erreur";
+
+function sendError(res, status) {
+  return res.status(status).json({ error: ERROR });
+}
 
 const dbDir = path.join(__dirname, "database");
 if (!fs.existsSync(dbDir)) {
@@ -78,10 +84,10 @@ function syncSessionUser(req) {
 function requireAdmin(req, res, next) {
   const user = syncSessionUser(req);
   if (!user) {
-    return res.status(401).json({ error: "Non authentifié." });
+    return sendError(res, 401);
   }
   if (user.role !== "admin") {
-    return res.status(403).json({ error: "Accès administrateur requis." });
+    return sendError(res, 403);
   }
   next();
 }
@@ -97,18 +103,18 @@ app.get("/api/vehicles/featured", (req, res) => {
 app.put("/api/vehicles/:id/featured", (req, res) => {
   const user = syncSessionUser(req);
   if (!user) {
-    return res.status(401).json({ error: "Non authentifié." });
+    return sendError(res, 401);
   }
 
   const id = Number(req.params.id);
   const vehicle = getVehicleById(id);
   if (!vehicle) {
-    return res.status(404).json({ error: "Véhicule introuvable." });
+    return sendError(res, 404);
   }
 
   const isOwner = vehicle.vendeurId === user.id;
   if (user.role !== "admin" && !isOwner) {
-    return res.status(403).json({ error: "Action non autorisée." });
+    return sendError(res, 403);
   }
 
   const featured = Boolean(req.body.featured);
@@ -127,7 +133,7 @@ function parsePrice(value) {
 app.post("/api/vehicles", (req, res) => {
   const user = syncSessionUser(req);
   if (!user) {
-    return res.status(401).json({ error: "Non authentifié." });
+    return sendError(res, 401);
   }
 
   try {
@@ -147,11 +153,11 @@ app.post("/api/vehicles", (req, res) => {
     const priceNum = parsePrice(price);
 
     if (!String(brand || "").trim()) {
-      return res.status(400).json({ error: "La marque est obligatoire." });
+      return sendError(res, 400);
     }
 
     if (Number.isNaN(priceNum) || priceNum < 0) {
-      return res.status(400).json({ error: "Le prix est obligatoire." });
+      return sendError(res, 400);
     }
 
     const vehicle = createVehicle({
@@ -172,11 +178,7 @@ app.post("/api/vehicles", (req, res) => {
     res.status(201).json(vehicle);
   } catch (error) {
     console.error("POST /api/vehicles:", error);
-    const detail =
-      error && /no column named performance/i.test(String(error.message || ""))
-        ? "Colonnes à jour manquantes. Redémarrez le serveur avec npm start."
-        : "Impossible d'enregistrer le véhicule.";
-    res.status(500).json({ error: detail });
+    sendError(res, 500);
   }
 });
 
@@ -184,7 +186,7 @@ app.patch("/api/vehicles/:id", requireAdmin, (req, res) => {
   const id = Number(req.params.id);
   const existing = getVehicleById(id);
   if (!existing) {
-    return res.status(404).json({ error: "Véhicule introuvable." });
+    return sendError(res, 404);
   }
 
   try {
@@ -204,11 +206,11 @@ app.patch("/api/vehicles/:id", requireAdmin, (req, res) => {
     const priceNum = parsePrice(price);
 
     if (!String(brand || "").trim()) {
-      return res.status(400).json({ error: "La marque est obligatoire." });
+      return sendError(res, 400);
     }
 
     if (Number.isNaN(priceNum) || priceNum < 0) {
-      return res.status(400).json({ error: "Le prix est obligatoire." });
+      return sendError(res, 400);
     }
 
     const updated = updateVehicle(id, {
@@ -230,26 +232,26 @@ app.patch("/api/vehicles/:id", requireAdmin, (req, res) => {
     });
 
     if (!updated) {
-      return res.status(500).json({ error: "Impossible de modifier le véhicule." });
+      return sendError(res, 500);
     }
 
     res.json(updated);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Impossible de modifier le véhicule." });
+    sendError(res, 500);
   }
 });
 
 app.delete("/api/vehicles/:id", (req, res) => {
   const user = syncSessionUser(req);
   if (!user) {
-    return res.status(401).json({ error: "Non authentifié." });
+    return sendError(res, 401);
   }
 
   const id = Number(req.params.id);
   const vehicle = getVehicleById(id);
   if (!vehicle) {
-    return res.status(404).json({ error: "Véhicule introuvable." });
+    return sendError(res, 404);
   }
 
   const deleted =
@@ -258,7 +260,7 @@ app.delete("/api/vehicles/:id", (req, res) => {
       : deleteVehicle(id, user.id);
 
   if (!deleted) {
-    return res.status(403).json({ error: "Suppression non autorisée." });
+    return sendError(res, 403);
   }
 
   res.json({ success: true });
@@ -268,12 +270,12 @@ app.post("/api/auth/login", (req, res) => {
   const { identifiant, password } = req.body;
 
   if (!identifiant || !password) {
-    return res.status(400).json({ error: "Identifiant et mot de passe requis." });
+    return sendError(res, 400);
   }
 
   const user = findSellerByIdentifiant(identifiant.trim());
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-    return res.status(401).json({ error: "Identifiant ou mot de passe incorrect." });
+    return sendError(res, 401);
   }
 
   req.session.sellerId = user.id;
@@ -309,20 +311,20 @@ app.post("/api/admin/sellers", requireAdmin, (req, res) => {
   const { identifiant, password, nom, grade } = req.body;
 
   if (!identifiant?.trim() || !password || !nom?.trim() || !grade) {
-    return res.status(400).json({ error: "Identifiant, mot de passe, nom et grade sont obligatoires." });
+    return sendError(res, 400);
   }
 
   if (!isValidSellerGrade(grade)) {
-    return res.status(400).json({ error: "Grade vendeur invalide." });
+    return sendError(res, 400);
   }
 
-  if (identifiant.trim().toLowerCase() === "raheem") {
-    return res.status(400).json({ error: "Cet identifiant est réservé." });
+  if (isReservedIdentifiant(identifiant)) {
+    return sendError(res, 400);
   }
 
   const existing = findSellerByIdentifiant(identifiant.trim());
   if (existing) {
-    return res.status(409).json({ error: "Cet identifiant existe déjà." });
+    return sendError(res, 409);
   }
 
   try {
@@ -336,7 +338,7 @@ app.post("/api/admin/sellers", requireAdmin, (req, res) => {
     res.status(201).json(seller);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Impossible de créer le compte vendeur." });
+    sendError(res, 500);
   }
 });
 
@@ -345,16 +347,16 @@ app.patch("/api/admin/sellers/:id/grade", requireAdmin, (req, res) => {
   const { grade } = req.body;
 
   if (!grade) {
-    return res.status(400).json({ error: "Le grade est obligatoire." });
+    return sendError(res, 400);
   }
 
   if (!isValidSellerGrade(grade)) {
-    return res.status(400).json({ error: "Grade vendeur invalide." });
+    return sendError(res, 400);
   }
 
   const updated = updateSellerGrade(id, grade);
   if (!updated) {
-    return res.status(404).json({ error: "Vendeur introuvable." });
+    return sendError(res, 404);
   }
 
   res.json(updated);
@@ -365,12 +367,12 @@ app.patch("/api/admin/sellers/:id/password", requireAdmin, (req, res) => {
   const { password } = req.body;
 
   if (!password || String(password).length < 3) {
-    return res.status(400).json({ error: "Le mot de passe doit contenir au moins 3 caractères." });
+    return sendError(res, 400);
   }
 
   const updated = updateSellerPassword(id, password);
   if (!updated) {
-    return res.status(404).json({ error: "Vendeur introuvable." });
+    return sendError(res, 404);
   }
 
   res.json({ success: true });
@@ -381,7 +383,7 @@ app.delete("/api/admin/sellers/:id", requireAdmin, (req, res) => {
   const deleted = deleteSeller(id);
 
   if (!deleted) {
-    return res.status(404).json({ error: "Vendeur introuvable ou suppression non autorisée." });
+    return sendError(res, 404);
   }
 
   res.json({ success: true });

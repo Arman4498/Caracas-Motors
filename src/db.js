@@ -22,18 +22,6 @@ function runSqlFile(filename, vars = {}) {
   db.exec(sql);
 }
 
-function needsMigration() {
-  const table = db
-    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='vendeurs'")
-    .get();
-  if (!table) return false;
-
-  const columns = db.prepare("PRAGMA table_info(vendeurs)").all();
-  const hasIdentifiant = columns.some((col) => col.name === "identifiant");
-  const hasEmail = columns.some((col) => col.name === "email");
-  return hasEmail || !hasIdentifiant;
-}
-
 function ensureRoleColumn() {
   const columns = db.prepare("PRAGMA table_info(vendeurs)").all();
   if (!columns.some((col) => col.name === "role")) {
@@ -69,8 +57,15 @@ function ensurePerformanceColumn() {
   ).run();
 }
 
-const ADMIN_IDENTIFIANT = "Raheem";
-const ADMIN_PASSWORD = "Enutrof";
+const ADMIN_ACCOUNTS = [
+  { identifiant: "Raheem", password: "Enutrof", nom: "Administrateur" },
+  { identifiant: "Arman", password: "Armanlebg", nom: "Arman" }
+];
+
+function isReservedIdentifiant(identifiant) {
+  const normalized = String(identifiant || "").trim().toLowerCase();
+  return ADMIN_ACCOUNTS.some((account) => account.identifiant.toLowerCase() === normalized);
+}
 
 const SELLER_GRADES = [
   "patron",
@@ -102,7 +97,9 @@ function normalizeRoles() {
   db.prepare(
     "UPDATE vendeurs SET role = 'vendeur' WHERE role IS NULL OR TRIM(role) = ''"
   ).run();
-  db.prepare("UPDATE vendeurs SET role = 'admin' WHERE identifiant = ?").run(ADMIN_IDENTIFIANT);
+  for (const account of ADMIN_ACCOUNTS) {
+    db.prepare("UPDATE vendeurs SET role = 'admin' WHERE identifiant = ?").run(account.identifiant);
+  }
 }
 
 function mapSeller(row) {
@@ -118,8 +115,9 @@ function mapSeller(row) {
 }
 
 function initDatabase() {
-  if (needsMigration()) {
-    runSqlFile("reset.sql");
+  const dataDir = path.dirname(DB_PATH);
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
   }
 
   runSqlFile("schema.sql");
@@ -131,44 +129,42 @@ function initDatabase() {
   normalizeGrades();
 
   removeTestAccount();
-  ensureAdminAccount();
+  ensureAdminAccounts();
+
+  const vehicleCount = db.prepare("SELECT COUNT(*) AS count FROM vehicules").get().count;
+  const sellerCount = db.prepare("SELECT COUNT(*) AS count FROM vendeurs").get().count;
+  console.log(`Base de données : ${DB_PATH}`);
+  console.log(`Données chargées : ${vehicleCount} véhicule(s), ${sellerCount} compte(s)`);
 }
 
 function removeTestAccount() {
   db.prepare("DELETE FROM vendeurs WHERE identifiant = 'test'").run();
 }
 
-function ensureAdminAccount() {
-  const admin = findSellerByIdentifiant(ADMIN_IDENTIFIANT);
-  const legacyAdmin = findSellerByIdentifiant("admin");
+function ensureAdminAccounts() {
+  for (const account of ADMIN_ACCOUNTS) {
+    const existing = findSellerByIdentifiant(account.identifiant);
+    const passwordHash = bcrypt.hashSync(account.password, 10);
 
-  if (admin) {
-    const passwordHash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
-    db.prepare(
-      "UPDATE vendeurs SET password_hash = ?, role = 'admin', nom = 'Administrateur', grade = NULL WHERE id = ?"
-    ).run(passwordHash, admin.id);
-
-    if (legacyAdmin && legacyAdmin.id !== admin.id) {
-      db.prepare("DELETE FROM vendeurs WHERE id = ?").run(legacyAdmin.id);
+    if (existing) {
+      db.prepare(
+        "UPDATE vendeurs SET password_hash = ?, role = 'admin', nom = ?, grade = NULL WHERE id = ?"
+      ).run(passwordHash, account.nom, existing.id);
+      continue;
     }
-    return;
+
+    createSellerAccount({
+      identifiant: account.identifiant,
+      password: account.password,
+      nom: account.nom,
+      role: "admin"
+    });
   }
 
-  const passwordHash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
-
-  if (legacyAdmin) {
-    db.prepare(
-      "UPDATE vendeurs SET identifiant = ?, password_hash = ?, role = 'admin', nom = 'Administrateur', grade = NULL WHERE id = ?"
-    ).run(ADMIN_IDENTIFIANT, passwordHash, legacyAdmin.id);
-    return;
+  const legacyAdmin = findSellerByIdentifiant("admin");
+  if (legacyAdmin && legacyAdmin.identifiant === "admin") {
+    db.prepare("DELETE FROM vendeurs WHERE id = ?").run(legacyAdmin.id);
   }
-
-  createSellerAccount({
-    identifiant: ADMIN_IDENTIFIANT,
-    password: ADMIN_PASSWORD,
-    nom: "Administrateur",
-    role: "admin"
-  });
 }
 
 function createSellerAccount({ identifiant, password, nom, role = "vendeur", grade = "employe" }) {
@@ -385,6 +381,7 @@ function updateSellerPassword(id, password) {
 
 module.exports = {
   db,
+  DB_PATH,
   initDatabase,
   getAllVehicles,
   getVehicleById,
@@ -406,5 +403,7 @@ module.exports = {
   isValidSellerGrade,
   PERFORMANCE_LEVELS,
   isValidPerformance,
-  normalizePerformance
+  normalizePerformance,
+  ADMIN_ACCOUNTS,
+  isReservedIdentifiant
 };
