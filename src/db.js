@@ -3,8 +3,27 @@ const bcrypt = require("bcryptjs");
 const fs = require("fs");
 const path = require("path");
 
-const DB_PATH = path.join(__dirname, "database", "caracas.db");
 const SQL_DIR = path.join(__dirname, "database");
+
+function resolveDbPath() {
+  if (process.env.DATABASE_PATH?.trim()) {
+    return path.resolve(process.env.DATABASE_PATH.trim());
+  }
+  return path.join(__dirname, "database", "caracas.db");
+}
+
+const DB_PATH = resolveDbPath();
+const dbDir = path.dirname(DB_PATH);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
+if (process.env.RENDER && !process.env.DATABASE_PATH?.trim()) {
+  console.warn(
+    "ATTENTION Render : sans DATABASE_PATH sur un disque persistant, les véhicules seront perdus à chaque redéploiement."
+  );
+}
+
 const db = new Database(DB_PATH);
 
 db.pragma("journal_mode = WAL");
@@ -115,11 +134,6 @@ function mapSeller(row) {
 }
 
 function initDatabase() {
-  const dataDir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-
   runSqlFile("schema.sql");
   ensureRoleColumn();
   ensureGradeColumn();

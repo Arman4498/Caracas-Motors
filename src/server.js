@@ -33,11 +33,6 @@ function sendError(res, status) {
   return res.status(status).json({ error: ERROR });
 }
 
-const dbDir = path.join(__dirname, "database");
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
-
 initDatabase();
 
 app.use(express.json());
