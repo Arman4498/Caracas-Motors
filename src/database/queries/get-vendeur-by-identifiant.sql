@@ -1,1 +1,1 @@
-SELECT * FROM vendeurs WHERE identifiant = ?;
+SELECT * FROM vendeurs WHERE LOWER(identifiant) = LOWER(?);

@@ -27,6 +27,8 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 const ERROR = "Erreur";
 
+app.set("trust proxy", 1);
+
 function sendError(res, status) {
   return res.status(status).json({ error: ERROR });
 }
@@ -50,10 +52,12 @@ app.use(
     secret: process.env.SESSION_SECRET || "caracas-motors-secret-change-in-production",
     resave: false,
     saveUninitialized: false,
+    proxy: true,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production"
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax"
     }
   })
 );
@@ -294,6 +298,7 @@ app.post("/api/auth/login", async (req, res) => {
 
     const user = await findSellerByIdentifiant(identifiant.trim());
     if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+      console.warn("Connexion refusée pour:", identifiant.trim());
       return sendError(res, 401);
     }
 
@@ -301,9 +306,21 @@ app.post("/api/auth/login", async (req, res) => {
     req.session.sellerIdentifiant = user.identifiant;
     req.session.role = user.role || "vendeur";
 
-    res.json(await findSellerById(user.id));
+    req.session.save(async (error) => {
+      if (error) {
+        console.error("Session save:", error);
+        return sendError(res, 500);
+      }
+
+      try {
+        res.json(await findSellerById(user.id));
+      } catch (saveError) {
+        console.error(saveError);
+        sendError(res, 500);
+      }
+    });
   } catch (error) {
-    console.error(error);
+    console.error("POST /api/auth/login:", error);
     sendError(res, 500);
   }
 });

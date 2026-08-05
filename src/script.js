@@ -695,12 +695,12 @@ async function handleLogin(event) {
     const identifiant = document.getElementById("loginIdentifiant").value.trim();
     const password = document.getElementById("loginPassword").value;
 
-    await apiFetch("/api/auth/login", {
+    const seller = await apiFetch("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ identifiant, password })
     });
 
-    await checkSession();
+    currentSeller = normalizeSeller(seller);
 
     loginForm.reset();
     updateSellerModeUI();
