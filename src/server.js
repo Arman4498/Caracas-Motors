@@ -1,8 +1,6 @@
 const express = require("express");
 const session = require("express-session");
 const bcrypt = require("bcryptjs");
-const path = require("path");
-const fs = require("fs");
 const {
   initDatabase,
   getAllVehicles,
@@ -33,8 +31,6 @@ function sendError(res, status) {
   return res.status(status).json({ error: ERROR });
 }
 
-initDatabase();
-
 app.use(express.json());
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -51,22 +47,23 @@ app.use((req, res, next) => {
 });
 app.use(
   session({
-    secret: "caracas-motors-secret-change-in-production",
+    secret: process.env.SESSION_SECRET || "caracas-motors-secret-change-in-production",
     resave: false,
     saveUninitialized: false,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000,
-      httpOnly: true
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production"
     }
   })
 );
 
-function syncSessionUser(req) {
+async function syncSessionUser(req) {
   if (!req.session.sellerId) {
     return null;
   }
 
-  const user = findSellerById(req.session.sellerId);
+  const user = await findSellerById(req.session.sellerId);
   if (!user) {
     return null;
   }
@@ -77,44 +74,65 @@ function syncSessionUser(req) {
 }
 
 function requireAdmin(req, res, next) {
-  const user = syncSessionUser(req);
-  if (!user) {
-    return sendError(res, 401);
-  }
-  if (user.role !== "admin") {
-    return sendError(res, 403);
-  }
-  next();
+  syncSessionUser(req)
+    .then((user) => {
+      if (!user) {
+        return sendError(res, 401);
+      }
+      if (user.role !== "admin") {
+        return sendError(res, 403);
+      }
+      next();
+    })
+    .catch((error) => {
+      console.error(error);
+      sendError(res, 500);
+    });
 }
 
-app.get("/api/vehicles", (req, res) => {
-  res.json(getAllVehicles());
+app.get("/api/vehicles", async (req, res) => {
+  try {
+    res.json(await getAllVehicles());
+  } catch (error) {
+    console.error(error);
+    sendError(res, 500);
+  }
 });
 
-app.get("/api/vehicles/featured", (req, res) => {
-  res.json(getFeaturedVehicle());
+app.get("/api/vehicles/featured", async (req, res) => {
+  try {
+    res.json(await getFeaturedVehicle());
+  } catch (error) {
+    console.error(error);
+    sendError(res, 500);
+  }
 });
 
-app.put("/api/vehicles/:id/featured", (req, res) => {
-  const user = syncSessionUser(req);
-  if (!user) {
-    return sendError(res, 401);
-  }
+app.put("/api/vehicles/:id/featured", async (req, res) => {
+  try {
+    const user = await syncSessionUser(req);
+    if (!user) {
+      return sendError(res, 401);
+    }
 
-  const id = Number(req.params.id);
-  const vehicle = getVehicleById(id);
-  if (!vehicle) {
-    return sendError(res, 404);
-  }
+    const id = Number(req.params.id);
+    const vehicle = await getVehicleById(id);
+    if (!vehicle) {
+      return sendError(res, 404);
+    }
 
-  const isOwner = vehicle.vendeurId === user.id;
-  if (user.role !== "admin" && !isOwner) {
-    return sendError(res, 403);
-  }
+    const isOwner = vehicle.vendeurId === user.id;
+    if (user.role !== "admin" && !isOwner) {
+      return sendError(res, 403);
+    }
 
-  const featured = Boolean(req.body.featured);
-  const updated = setVehicleFeatured(id, featured);
-  res.json(updated);
+    const featured = Boolean(req.body.featured);
+    const updated = await setVehicleFeatured(id, featured);
+    res.json(updated);
+  } catch (error) {
+    console.error(error);
+    sendError(res, 500);
+  }
 });
 
 function parsePrice(value) {
@@ -125,8 +143,8 @@ function parsePrice(value) {
   return Number(normalized);
 }
 
-app.post("/api/vehicles", (req, res) => {
-  const user = syncSessionUser(req);
+app.post("/api/vehicles", async (req, res) => {
+  const user = await syncSessionUser(req);
   if (!user) {
     return sendError(res, 401);
   }
@@ -155,7 +173,7 @@ app.post("/api/vehicles", (req, res) => {
       return sendError(res, 400);
     }
 
-    const vehicle = createVehicle({
+    const vehicle = await createVehicle({
       vendeurId: req.session.sellerId,
       brand: String(brand).trim(),
       model: String(model || "").trim(),
@@ -177,9 +195,9 @@ app.post("/api/vehicles", (req, res) => {
   }
 });
 
-app.patch("/api/vehicles/:id", requireAdmin, (req, res) => {
+app.patch("/api/vehicles/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = getVehicleById(id);
+  const existing = await getVehicleById(id);
   if (!existing) {
     return sendError(res, 404);
   }
@@ -208,7 +226,7 @@ app.patch("/api/vehicles/:id", requireAdmin, (req, res) => {
       return sendError(res, 400);
     }
 
-    const updated = updateVehicle(id, {
+    const updated = await updateVehicle(id, {
       brand: String(brand).trim(),
       model: String(model || "").trim(),
       year: year ? Number(year) : existing.year,
@@ -237,47 +255,57 @@ app.patch("/api/vehicles/:id", requireAdmin, (req, res) => {
   }
 });
 
-app.delete("/api/vehicles/:id", (req, res) => {
-  const user = syncSessionUser(req);
-  if (!user) {
-    return sendError(res, 401);
+app.delete("/api/vehicles/:id", async (req, res) => {
+  try {
+    const user = await syncSessionUser(req);
+    if (!user) {
+      return sendError(res, 401);
+    }
+
+    const id = Number(req.params.id);
+    const vehicle = await getVehicleById(id);
+    if (!vehicle) {
+      return sendError(res, 404);
+    }
+
+    const deleted =
+      user.role === "admin"
+        ? await deleteVehicleAsAdmin(id)
+        : await deleteVehicle(id, user.id);
+
+    if (!deleted) {
+      return sendError(res, 403);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    sendError(res, 500);
   }
-
-  const id = Number(req.params.id);
-  const vehicle = getVehicleById(id);
-  if (!vehicle) {
-    return sendError(res, 404);
-  }
-
-  const deleted =
-    user.role === "admin"
-      ? deleteVehicleAsAdmin(id)
-      : deleteVehicle(id, user.id);
-
-  if (!deleted) {
-    return sendError(res, 403);
-  }
-
-  res.json({ success: true });
 });
 
-app.post("/api/auth/login", (req, res) => {
-  const { identifiant, password } = req.body;
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { identifiant, password } = req.body;
 
-  if (!identifiant || !password) {
-    return sendError(res, 400);
+    if (!identifiant || !password) {
+      return sendError(res, 400);
+    }
+
+    const user = await findSellerByIdentifiant(identifiant.trim());
+    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+      return sendError(res, 401);
+    }
+
+    req.session.sellerId = user.id;
+    req.session.sellerIdentifiant = user.identifiant;
+    req.session.role = user.role || "vendeur";
+
+    res.json(await findSellerById(user.id));
+  } catch (error) {
+    console.error(error);
+    sendError(res, 500);
   }
-
-  const user = findSellerByIdentifiant(identifiant.trim());
-  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-    return sendError(res, 401);
-  }
-
-  req.session.sellerId = user.id;
-  req.session.sellerIdentifiant = user.identifiant;
-  req.session.role = user.role || "vendeur";
-
-  res.json(findSellerById(user.id));
 });
 
 app.post("/api/auth/logout", (req, res) => {
@@ -286,23 +314,33 @@ app.post("/api/auth/logout", (req, res) => {
   });
 });
 
-app.get("/api/auth/me", (req, res) => {
-  const user = syncSessionUser(req);
-  if (!user) {
-    return res.json({ authenticated: false });
+app.get("/api/auth/me", async (req, res) => {
+  try {
+    const user = await syncSessionUser(req);
+    if (!user) {
+      return res.json({ authenticated: false });
+    }
+
+    res.json({
+      authenticated: true,
+      seller: user
+    });
+  } catch (error) {
+    console.error(error);
+    sendError(res, 500);
   }
-
-  res.json({
-    authenticated: true,
-    seller: user
-  });
 });
 
-app.get("/api/admin/sellers", requireAdmin, (req, res) => {
-  res.json(getAllSellers());
+app.get("/api/admin/sellers", requireAdmin, async (req, res) => {
+  try {
+    res.json(await getAllSellers());
+  } catch (error) {
+    console.error(error);
+    sendError(res, 500);
+  }
 });
 
-app.post("/api/admin/sellers", requireAdmin, (req, res) => {
+app.post("/api/admin/sellers", requireAdmin, async (req, res) => {
   const { identifiant, password, nom, grade } = req.body;
 
   if (!identifiant?.trim() || !password || !nom?.trim() || !grade) {
@@ -317,13 +355,13 @@ app.post("/api/admin/sellers", requireAdmin, (req, res) => {
     return sendError(res, 400);
   }
 
-  const existing = findSellerByIdentifiant(identifiant.trim());
+  const existing = await findSellerByIdentifiant(identifiant.trim());
   if (existing) {
     return sendError(res, 409);
   }
 
   try {
-    const seller = createSellerAccount({
+    const seller = await createSellerAccount({
       identifiant: identifiant.trim(),
       password,
       nom: nom.trim(),
@@ -337,61 +375,95 @@ app.post("/api/admin/sellers", requireAdmin, (req, res) => {
   }
 });
 
-app.patch("/api/admin/sellers/:id/grade", requireAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  const { grade } = req.body;
+app.patch("/api/admin/sellers/:id/grade", requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { grade } = req.body;
 
-  if (!grade) {
-    return sendError(res, 400);
+    if (!grade) {
+      return sendError(res, 400);
+    }
+
+    if (!isValidSellerGrade(grade)) {
+      return sendError(res, 400);
+    }
+
+    const updated = await updateSellerGrade(id, grade);
+    if (!updated) {
+      return sendError(res, 404);
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error(error);
+    sendError(res, 500);
   }
-
-  if (!isValidSellerGrade(grade)) {
-    return sendError(res, 400);
-  }
-
-  const updated = updateSellerGrade(id, grade);
-  if (!updated) {
-    return sendError(res, 404);
-  }
-
-  res.json(updated);
 });
 
-app.patch("/api/admin/sellers/:id/password", requireAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  const { password } = req.body;
+app.patch("/api/admin/sellers/:id/password", requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { password } = req.body;
 
-  if (!password || String(password).length < 3) {
-    return sendError(res, 400);
+    if (!password || String(password).length < 3) {
+      return sendError(res, 400);
+    }
+
+    const updated = await updateSellerPassword(id, password);
+    if (!updated) {
+      return sendError(res, 404);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    sendError(res, 500);
   }
-
-  const updated = updateSellerPassword(id, password);
-  if (!updated) {
-    return sendError(res, 404);
-  }
-
-  res.json({ success: true });
 });
 
-app.delete("/api/admin/sellers/:id", requireAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  const deleted = deleteSeller(id);
+app.delete("/api/admin/sellers/:id", requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const deleted = await deleteSeller(id);
 
-  if (!deleted) {
-    return sendError(res, 404);
+    if (!deleted) {
+      return sendError(res, 404);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    sendError(res, 500);
   }
+});
 
-  res.json({ success: true });
+const SENSITIVE_PATHS = /^\/(db|db-sqlite|db-postgres|db-shared|server)(\.js)?$/;
+
+app.use((req, res, next) => {
+  if (SENSITIVE_PATHS.test(req.path) || req.path.startsWith("/database/")) {
+    return res.status(404).end();
+  }
+  next();
 });
 
 app.use(express.static(__dirname));
 
-app.listen(PORT, () => {
-  console.log(`Caracas Motors → http://localhost:${PORT}`);
-}).on("error", (error) => {
-  if (error.code === "EADDRINUSE") {
-    console.error(`Le port ${PORT} est déjà utilisé. Arrêtez l'autre processus ou utilisez : set PORT=3001&& npm start`);
+async function start() {
+  try {
+    await initDatabase();
+    app.listen(PORT, () => {
+      console.log(`Caracas Motors → http://localhost:${PORT}`);
+    }).on("error", (error) => {
+      if (error.code === "EADDRINUSE") {
+        console.error(`Le port ${PORT} est déjà utilisé. Arrêtez l'autre processus ou utilisez : set PORT=3001&& npm start`);
+        process.exit(1);
+      }
+      throw error;
+    });
+  } catch (error) {
+    console.error("Impossible de démarrer la base de données:", error);
     process.exit(1);
   }
-  throw error;
-});
+}
+
+start();
